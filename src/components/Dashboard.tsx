@@ -1,22 +1,73 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Users, Clock, DollarSign, AlertTriangle, Plus, Calendar } from "lucide-react";
+import { Users, Clock, DollarSign, AlertTriangle, Plus, Calendar, LogOut } from "lucide-react";
 import heroImage from "@/assets/construction-hero.jpg";
-
-const mockData = {
-  totalWorkers: 24,
-  presentToday: 18,
-  totalDebt: 145000,
-  paidThisMonth: 890000,
-  recentActivity: [
-    { worker: "Иванов Петр", action: "Отмечен на объекте", time: "08:30", status: "present" },
-    { worker: "Сидоров Алексей", action: "Получил оплату", time: "17:45", status: "paid" },
-    { worker: "Петров Михаил", action: "Болен", time: "07:00", status: "sick" },
-  ]
-};
+import { useAuth } from "@/hooks/useAuth";
+import { useWorkers, useAttendance, usePayments } from "@/hooks/useWorkers";
+import { useNavigate } from "react-router-dom";
+import { useEffect } from "react";
 
 export default function Dashboard() {
+  const { user, loading, signOut } = useAuth();
+  const navigate = useNavigate();
+  const { data: workers, isLoading: workersLoading } = useWorkers();
+  const { data: attendance, isLoading: attendanceLoading } = useAttendance();
+  const { data: payments, isLoading: paymentsLoading } = usePayments();
+
+  useEffect(() => {
+    if (!loading && !user) {
+      navigate("/auth");
+    }
+  }, [user, loading, navigate]);
+
+  if (loading || workersLoading || attendanceLoading || paymentsLoading) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
+          <p className="text-muted-foreground">Загрузка...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!user) return null;
+
+  // Calculate statistics from real data
+  const totalWorkers = workers?.length || 0;
+  const today = new Date().toISOString().split('T')[0];
+  const presentToday = attendance?.filter(a => a.date === today && a.status === 'present').length || 0;
+  
+  const thisMonth = new Date().toISOString().slice(0, 7); // YYYY-MM format
+  const monthlyPayments = payments?.filter(p => p.payment_date.startsWith(thisMonth)) || [];
+  const paidThisMonth = monthlyPayments.reduce((sum, p) => sum + p.amount, 0);
+
+  // Calculate debt (simplified - would need more complex logic for real app)
+  const totalDebt = 145000; // Placeholder for debt calculation
+
+  // Recent activity from attendance and payments
+  const recentActivity = [
+    ...(attendance?.slice(0, 2).map(a => ({
+      worker: a.worker?.full_name || "Неизвестный работник",
+      action: a.status === 'present' ? "Отмечен на объекте" : 
+              a.status === 'sick' ? "Болен" : "Отсутствует",
+      time: new Date(a.created_at).toLocaleTimeString('ru-RU', { 
+        hour: '2-digit', 
+        minute: '2-digit' 
+      }),
+      status: a.status
+    })) || []),
+    ...(payments?.slice(0, 1).map(p => ({
+      worker: p.worker?.full_name || "Неизвестный работник",
+      action: "Получил оплату",
+      time: new Date(p.payment_date).toLocaleTimeString('ru-RU', { 
+        hour: '2-digit', 
+        minute: '2-digit' 
+      }),
+      status: "paid" as const
+    })) || [])
+  ];
   return (
     <div className="min-h-screen bg-background">
       {/* Hero Section */}
@@ -26,11 +77,19 @@ export default function Dashboard() {
           alt="Construction site management"
           className="absolute inset-0 w-full h-full object-cover opacity-20"
         />
-        <div className="relative z-10 h-full flex items-center justify-center">
+        <div className="relative z-10 h-full flex items-center justify-between px-8">
           <div className="text-center text-white">
             <h1 className="text-4xl font-bold mb-2">Учет работников стройплощадки</h1>
             <p className="text-xl opacity-90">Простая система управления персоналом</p>
           </div>
+          <Button 
+            variant="outline" 
+            onClick={signOut}
+            className="bg-white/10 text-white border-white/20 hover:bg-white/20"
+          >
+            <LogOut className="mr-2 h-4 w-4" />
+            Выйти
+          </Button>
         </div>
       </div>
 
@@ -43,7 +102,7 @@ export default function Dashboard() {
               <Users className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{mockData.totalWorkers}</div>
+              <div className="text-2xl font-bold">{totalWorkers}</div>
               <p className="text-xs text-muted-foreground">
                 Активных сотрудников
               </p>
@@ -56,9 +115,9 @@ export default function Dashboard() {
               <Clock className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-success">{mockData.presentToday}</div>
+              <div className="text-2xl font-bold text-success">{presentToday}</div>
               <p className="text-xs text-muted-foreground">
-                Из {mockData.totalWorkers} работников
+                Из {totalWorkers} работников
               </p>
             </CardContent>
           </Card>
@@ -70,7 +129,7 @@ export default function Dashboard() {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold text-warning">
-                {mockData.totalDebt.toLocaleString()}₽
+                {totalDebt.toLocaleString()}₽
               </div>
               <p className="text-xs text-muted-foreground">
                 Требует выплаты
@@ -85,7 +144,7 @@ export default function Dashboard() {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold text-success">
-                {mockData.paidThisMonth.toLocaleString()}₽
+                {paidThisMonth.toLocaleString()}₽
               </div>
               <p className="text-xs text-muted-foreground">
                 За текущий период
@@ -122,7 +181,7 @@ export default function Dashboard() {
             </CardHeader>
             <CardContent>
               <div className="space-y-4">
-                {mockData.recentActivity.map((activity, index) => (
+                {recentActivity.map((activity, index) => (
                   <div key={index} className="flex items-center justify-between p-3 rounded-lg bg-muted/50">
                     <div className="flex items-center space-x-3">
                       <div className="flex-1">
@@ -169,36 +228,48 @@ export default function Dashboard() {
                   </tr>
                 </thead>
                 <tbody>
-                  {[
-                    { name: "Иванов Петр Сергеевич", rate: 2500, days: 22, debt: 7500, status: "present" },
-                    { name: "Сидоров Алексей Владимирович", rate: 3000, days: 20, debt: 0, status: "paid" },
-                    { name: "Петров Михаил Иванович", rate: 2800, days: 18, debt: 11200, status: "sick" },
-                    { name: "Козлов Дмитрий Андреевич", rate: 2700, days: 23, debt: 5400, status: "present" },
-                  ].map((worker, index) => (
-                    <tr key={index} className="border-b hover:bg-muted/30">
-                      <td className="p-3 font-medium">{worker.name}</td>
-                      <td className="p-3">{worker.rate.toLocaleString()}₽</td>
-                      <td className="p-3">{worker.days}</td>
-                      <td className="p-3">
-                        <span className={worker.debt > 0 ? "text-warning font-medium" : "text-success"}>
-                          {worker.debt > 0 ? `${worker.debt.toLocaleString()}₽` : "—"}
-                        </span>
-                      </td>
-                      <td className="p-3">
-                        <Badge 
-                          variant={
-                            worker.status === 'present' ? 'default' : 
-                            worker.status === 'paid' ? 'secondary' : 
-                            'destructive'
-                          }
-                        >
-                          {worker.status === 'present' ? 'На объекте' : 
-                           worker.status === 'paid' ? 'Оплачено' : 
-                           'Болен'}
-                        </Badge>
-                      </td>
-                    </tr>
-                  ))}
+                  {workers?.map((worker, index) => {
+                    // Get today's attendance for this worker
+                    const todayAttendance = attendance?.find(a => 
+                      a.worker_id === worker.id && a.date === today
+                    );
+                    
+                    // Calculate worked days this month for this worker
+                    const workedDaysThisMonth = attendance?.filter(a => 
+                      a.worker_id === worker.id && 
+                      a.date.startsWith(thisMonth) && 
+                      a.status === 'present'
+                    ).length || 0;
+                    
+                    // Calculate debt (simplified)
+                    const debt = workedDaysThisMonth * worker.daily_rate;
+                    
+                    return (
+                      <tr key={index} className="border-b hover:bg-muted/30">
+                        <td className="p-3 font-medium">{worker.full_name}</td>
+                        <td className="p-3">{worker.daily_rate.toLocaleString()}₽</td>
+                        <td className="p-3">{workedDaysThisMonth}</td>
+                        <td className="p-3">
+                          <span className={debt > 0 ? "text-warning font-medium" : "text-success"}>
+                            {debt > 0 ? `${debt.toLocaleString()}₽` : "—"}
+                          </span>
+                        </td>
+                        <td className="p-3">
+                          <Badge 
+                            variant={
+                              todayAttendance?.status === 'present' ? 'default' : 
+                              todayAttendance?.status === 'sick' ? 'destructive' :
+                              'secondary'
+                            }
+                          >
+                            {todayAttendance?.status === 'present' ? 'На объекте' : 
+                             todayAttendance?.status === 'sick' ? 'Болен' : 
+                             'Не отмечен'}
+                          </Badge>
+                        </td>
+                      </tr>
+                    );
+                  }) || []}
                 </tbody>
               </table>
             </div>
