@@ -7,6 +7,9 @@ import heroImage from "@/assets/construction-hero.jpg";
 import { useAuth } from "@/hooks/useAuth";
 import { useWorkers, useAttendance, usePayments } from "@/hooks/useWorkers";
 import { TelegramBotSetup } from "./TelegramBotSetup";
+import { AddWorkerDialog } from "./AddWorkerDialog";
+import { AttendanceDialog } from "./AttendanceDialog";
+import { PaymentDialog } from "./PaymentDialog";
 import { useNavigate } from "react-router-dom";
 import { useEffect } from "react";
 
@@ -172,18 +175,9 @@ export default function Dashboard() {
               <CardTitle>Быстрые действия</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
-              <Button className="w-full" variant="default">
-                <Plus className="mr-2 h-4 w-4" />
-                Добавить работника
-              </Button>
-              <Button className="w-full" variant="outline">
-                <Calendar className="mr-2 h-4 w-4" />
-                Отметить присутствие
-              </Button>
-              <Button className="w-full" variant="outline">
-                <DollarSign className="mr-2 h-4 w-4" />
-                Произвести выплату
-              </Button>
+              <AddWorkerDialog />
+              <AttendanceDialog />
+              <PaymentDialog />
             </CardContent>
           </Card>
 
