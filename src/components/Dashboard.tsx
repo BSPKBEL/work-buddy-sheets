@@ -1,10 +1,12 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Users, Clock, DollarSign, AlertTriangle, Plus, Calendar, LogOut } from "lucide-react";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Users, Clock, DollarSign, AlertTriangle, Plus, Calendar, LogOut, Bot } from "lucide-react";
 import heroImage from "@/assets/construction-hero.jpg";
 import { useAuth } from "@/hooks/useAuth";
 import { useWorkers, useAttendance, usePayments } from "@/hooks/useWorkers";
+import { TelegramBotSetup } from "./TelegramBotSetup";
 import { useNavigate } from "react-router-dom";
 import { useEffect } from "react";
 
@@ -94,6 +96,16 @@ export default function Dashboard() {
       </div>
 
       <div className="container mx-auto px-4 py-8">
+        <Tabs defaultValue="dashboard" className="w-full">
+          <TabsList className="grid w-full grid-cols-2 mb-8">
+            <TabsTrigger value="dashboard">📊 Панель управления</TabsTrigger>
+            <TabsTrigger value="telegram">
+              <Bot className="w-4 h-4 mr-2" />
+              Telegram бот
+            </TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="dashboard" className="space-y-8">
         {/* Stats Cards */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
           <Card>
@@ -275,6 +287,12 @@ export default function Dashboard() {
             </div>
           </CardContent>
         </Card>
+          </TabsContent>
+
+          <TabsContent value="telegram" className="space-y-8">
+            <TelegramBotSetup />
+          </TabsContent>
+        </Tabs>
       </div>
     </div>
   );
