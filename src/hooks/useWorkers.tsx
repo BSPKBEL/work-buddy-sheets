@@ -6,8 +6,38 @@ export interface Worker {
   full_name: string;
   phone: string | null;
   daily_rate: number;
+  status: string;
+  position: string | null;
+  notes: string | null;
   created_at: string;
   updated_at: string;
+}
+
+export interface Project {
+  id: string;
+  name: string;
+  description: string | null;
+  address: string | null;
+  start_date: string | null;
+  end_date: string | null;
+  status: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface WorkerAssignment {
+  id: string;
+  worker_id: string;
+  project_id: string;
+  foreman_id: string | null;
+  role: string;
+  start_date: string;
+  end_date: string | null;
+  created_at: string;
+  updated_at: string;
+  worker?: Worker;
+  project?: Project;
+  foreman?: Worker;
 }
 
 export interface AttendanceRecord {
@@ -79,6 +109,41 @@ export function usePayments() {
       
       if (error) throw error;
       return data as Payment[];
+    },
+  });
+}
+
+export function useProjects() {
+  return useQuery({
+    queryKey: ["projects"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("projects")
+        .select("*")
+        .order("name");
+      
+      if (error) throw error;
+      return data as Project[];
+    },
+  });
+}
+
+export function useWorkerAssignments() {
+  return useQuery({
+    queryKey: ["worker_assignments"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("worker_assignments")
+        .select(`
+          *,
+          worker:workers!worker_assignments_worker_id_fkey(*),
+          project:projects!worker_assignments_project_id_fkey(*),
+          foreman:workers!worker_assignments_foreman_id_fkey(*)
+        `)
+        .order("start_date", { ascending: false });
+      
+      if (error) throw error;
+      return data as WorkerAssignment[];
     },
   });
 }

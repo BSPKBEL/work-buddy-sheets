@@ -2,7 +2,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Users, Clock, DollarSign, AlertTriangle, Plus, Calendar, LogOut, Bot } from "lucide-react";
+import { Users, Clock, DollarSign, AlertTriangle, Plus, Calendar, LogOut, Bot, Settings } from "lucide-react";
 import heroImage from "@/assets/construction-hero.jpg";
 import { useAuth } from "@/hooks/useAuth";
 import { useWorkers, useAttendance, usePayments } from "@/hooks/useWorkers";
@@ -10,6 +10,7 @@ import { TelegramBotSetup } from "./TelegramBotSetup";
 import { AddWorkerDialog } from "./AddWorkerDialog";
 import { AttendanceDialog } from "./AttendanceDialog";
 import { PaymentDialog } from "./PaymentDialog";
+import { WorkersManagement } from "./WorkersManagement";
 import { useNavigate } from "react-router-dom";
 import { useEffect } from "react";
 
@@ -100,8 +101,9 @@ export default function Dashboard() {
 
       <div className="container mx-auto px-4 py-8">
         <Tabs defaultValue="dashboard" className="w-full">
-          <TabsList className="grid w-full grid-cols-2 mb-8">
+          <TabsList className="grid w-full grid-cols-3 mb-8">
             <TabsTrigger value="dashboard">📊 Панель управления</TabsTrigger>
+            <TabsTrigger value="workers">👷 Управление</TabsTrigger>
             <TabsTrigger value="telegram">
               <Bot className="w-4 h-4 mr-2" />
               Telegram бот
@@ -281,6 +283,10 @@ export default function Dashboard() {
             </div>
           </CardContent>
         </Card>
+          </TabsContent>
+
+          <TabsContent value="workers" className="space-y-8">
+            <WorkersManagement />
           </TabsContent>
 
           <TabsContent value="telegram" className="space-y-8">

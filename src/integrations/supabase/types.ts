@@ -90,13 +90,110 @@ export type Database = {
           },
         ]
       }
+      projects: {
+        Row: {
+          address: string | null
+          created_at: string
+          description: string | null
+          end_date: string | null
+          id: string
+          name: string
+          start_date: string | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          address?: string | null
+          created_at?: string
+          description?: string | null
+          end_date?: string | null
+          id?: string
+          name: string
+          start_date?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          address?: string | null
+          created_at?: string
+          description?: string | null
+          end_date?: string | null
+          id?: string
+          name?: string
+          start_date?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      worker_assignments: {
+        Row: {
+          created_at: string
+          end_date: string | null
+          foreman_id: string | null
+          id: string
+          project_id: string
+          role: string
+          start_date: string
+          updated_at: string
+          worker_id: string
+        }
+        Insert: {
+          created_at?: string
+          end_date?: string | null
+          foreman_id?: string | null
+          id?: string
+          project_id: string
+          role?: string
+          start_date?: string
+          updated_at?: string
+          worker_id: string
+        }
+        Update: {
+          created_at?: string
+          end_date?: string | null
+          foreman_id?: string | null
+          id?: string
+          project_id?: string
+          role?: string
+          start_date?: string
+          updated_at?: string
+          worker_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "worker_assignments_foreman_id_fkey"
+            columns: ["foreman_id"]
+            isOneToOne: false
+            referencedRelation: "workers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "worker_assignments_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "worker_assignments_worker_id_fkey"
+            columns: ["worker_id"]
+            isOneToOne: false
+            referencedRelation: "workers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       workers: {
         Row: {
           created_at: string
           daily_rate: number
           full_name: string
           id: string
+          notes: string | null
           phone: string | null
+          position: string | null
+          status: string
           updated_at: string
         }
         Insert: {
@@ -104,7 +201,10 @@ export type Database = {
           daily_rate?: number
           full_name: string
           id?: string
+          notes?: string | null
           phone?: string | null
+          position?: string | null
+          status?: string
           updated_at?: string
         }
         Update: {
@@ -112,7 +212,10 @@ export type Database = {
           daily_rate?: number
           full_name?: string
           id?: string
+          notes?: string | null
           phone?: string | null
+          position?: string | null
+          status?: string
           updated_at?: string
         }
         Relationships: []
