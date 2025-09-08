@@ -35,6 +35,15 @@ export function TelegramBotSetup() {
     setIsSettingWebhook(true);
     
     try {
+      // Проверяем токен бота
+      const botInfoResponse = await fetch(`https://api.telegram.org/bot${botToken}/getMe`);
+      const botInfo = await botInfoResponse.json();
+      
+      if (!botInfo.ok) {
+        throw new Error('Неверный токен бота');
+      }
+
+      // Устанавливаем webhook
       const response = await fetch(`https://api.telegram.org/bot${botToken}/setWebhook`, {
         method: 'POST',
         headers: {
@@ -42,6 +51,7 @@ export function TelegramBotSetup() {
         },
         body: JSON.stringify({
           url: webhookUrl,
+          drop_pending_updates: true, // Очищаем старые обновления
         }),
       });
 
@@ -50,7 +60,7 @@ export function TelegramBotSetup() {
       if (data.ok) {
         toast({
           title: "Успешно!",
-          description: "Webhook установлен. Бот готов к работе.",
+          description: `Webhook установлен для бота @${botInfo.result.username}. Бот готов к работе.`,
         });
       } else {
         throw new Error(data.description || 'Ошибка установки webhook');

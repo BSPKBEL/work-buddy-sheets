@@ -107,4 +107,48 @@ All colors MUST be HSL.
   body {
     @apply bg-background text-foreground;
   }
+
+  /* Mobile optimizations */
+  @media (max-width: 768px) {
+    .dashboard-hero {
+      min-height: 40vh;
+    }
+    
+    .dashboard-tabs {
+      overflow-x-auto;
+    }
+    
+    .dashboard-tabs .tabs-list {
+      width: max-content;
+      min-width: 100%;
+    }
+    
+    .stats-grid {
+      grid-template-columns: repeat(2, 1fr);
+      gap: 1rem;
+    }
+    
+    .actions-grid {
+      grid-template-columns: 1fr;
+    }
+    
+    .table-wrapper {
+      overflow-x: auto;
+      -webkit-overflow-scrolling: touch;
+    }
+    
+    .mobile-card {
+      padding: 1rem;
+    }
+    
+    .mobile-text {
+      font-size: 0.875rem;
+    }
+  }
+  
+  @media (max-width: 640px) {
+    .stats-grid {
+      grid-template-columns: 1fr;
+    }
+  }
 }
