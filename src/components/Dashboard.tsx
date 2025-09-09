@@ -76,22 +76,38 @@ export default function Dashboard() {
 
   return (
     <div className="min-h-screen bg-background">
-      {/* Hero Section */}
-      <div className="relative dashboard-hero bg-gradient-to-r from-primary to-accent overflow-hidden">
-        <div className="absolute inset-0 bg-black/30"></div>
-        <div className="relative z-10 h-full flex items-center justify-between px-4 md:px-8 py-8">
+      {/* Secure Header */}
+      <div className="relative dashboard-hero bg-gradient-to-r from-primary via-primary to-accent overflow-hidden border-b border-border/50">
+        <div className="absolute inset-0 bg-black/20"></div>
+        <div className="relative z-10 h-full flex items-center justify-between px-4 md:px-8 py-6">
           <div className="text-white">
-            <h1 className="text-2xl md:text-4xl font-bold mb-2">Учет работников стройплощадки</h1>
-            <p className="text-lg md:text-xl opacity-90">Простая система управления персоналом</p>
+            <div className="flex items-center gap-3 mb-2">
+              <div className="p-2 bg-white/10 rounded-lg backdrop-blur-sm">
+                <Users className="h-6 w-6" />
+              </div>
+              <div>
+                <h1 className="text-2xl md:text-3xl font-bold">СтройМенеджер</h1>
+                <p className="text-sm opacity-90 flex items-center gap-1">
+                  <span className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></span>
+                  Безопасная система управления
+                </p>
+              </div>
+            </div>
           </div>
-          <Button 
-            variant="outline" 
-            onClick={signOut}
-            className="bg-white/10 text-white border-white/20 hover:bg-white/20"
-          >
-            <LogOut className="mr-2 h-4 w-4" />
-            <span className="hidden md:inline">Выйти</span>
-          </Button>
+          <div className="flex items-center gap-4">
+            <div className="hidden md:block text-white text-right">
+              <p className="text-sm opacity-90">Авторизован как</p>
+              <p className="font-medium">{user?.email}</p>
+            </div>
+            <Button 
+              variant="outline" 
+              onClick={signOut}
+              className="bg-white/10 text-white border-white/30 hover:bg-white/20 backdrop-blur-sm"
+            >
+              <LogOut className="mr-2 h-4 w-4" />
+              <span className="hidden md:inline">Выйти</span>
+            </Button>
+          </div>
         </div>
       </div>
 
