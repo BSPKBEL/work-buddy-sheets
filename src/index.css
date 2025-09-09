@@ -115,7 +115,7 @@ All colors MUST be HSL.
     }
     
     .dashboard-tabs {
-      overflow-x-auto;
+      overflow-x: auto;
     }
     
     .dashboard-tabs .tabs-list {
