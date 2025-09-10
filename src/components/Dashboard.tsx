@@ -165,6 +165,8 @@ export default function Dashboard() {
         return <SecureClientsManagement />;
       case 'security':
         return <SecurityDashboard />;
+      case 'ai-settings':
+        return <SystemSettings />;
       default:
         return (
           <div className="space-y-6">
@@ -314,38 +316,40 @@ export default function Dashboard() {
         
         <SidebarInset className="flex-1">
           {/* Header */}
-          <header className="flex h-16 shrink-0 items-center gap-2 md:gap-4 border-b bg-card px-3 md:px-4">
-            <SidebarTrigger className="-ml-1 touch-friendly" />
+          <header className="flex h-16 shrink-0 items-center gap-2 border-b bg-card px-3 md:px-4 overflow-hidden">
+            <SidebarTrigger className="-ml-1 touch-friendly flex-shrink-0" />
             
-            <div className="flex items-center gap-2 md:gap-4 flex-1 min-w-0">
-              <AppBreadcrumb activeSection={activeSection} onSectionChange={setActiveSection} />
+            <div className="flex items-center gap-2 flex-1 min-w-0 overflow-hidden">
+              <div className="min-w-0 flex-1">
+                <AppBreadcrumb activeSection={activeSection} onSectionChange={setActiveSection} />
+              </div>
             </div>
 
-            <div className="flex items-center gap-2 md:gap-4">
-              <div className="hidden md:flex items-center gap-4 flex-1 max-w-md">
+            <div className="flex items-center gap-2 flex-shrink-0">
+              <div className="hidden lg:flex items-center max-w-md">
                 <GlobalSearch onSectionChange={setActiveSection} />
               </div>
               
               {/* Mobile search icon */}
-              <div className="md:hidden">
+              <div className="lg:hidden">
                 <GlobalSearch onSectionChange={setActiveSection} />
               </div>
               
               <div className="flex items-center gap-2">
                 {isAdmin && (
-                  <div className="hidden sm:block text-right">
-                    <p className="text-sm text-muted-foreground flex items-center justify-end gap-1">
+                  <div className="hidden md:block text-right">
+                    <p className="text-xs text-muted-foreground flex items-center justify-end gap-1">
                       <Crown className="h-3 w-3" />
                       Администратор
                     </p>
-                    <p className="font-medium text-sm truncate max-w-32">{user?.email}</p>
+                    <p className="font-medium text-xs truncate max-w-24">{user?.email}</p>
                   </div>
                 )}
                 <Button 
                   variant="outline" 
                   size="sm"
                   onClick={handleSignOut}
-                  className="touch-friendly"
+                  className="touch-friendly flex-shrink-0"
                 >
                   <LogOut className="h-4 w-4 md:mr-2" />
                   <span className="hidden md:inline">Выйти</span>

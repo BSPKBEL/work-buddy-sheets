@@ -7,6 +7,8 @@ import { AddWorkerDialog } from "./AddWorkerDialog";
 import { EditWorkerDialog } from "./EditWorkerDialog";
 import { ProjectDialog } from "./ProjectDialog";
 import { AssignWorkersDialog } from "./AssignWorkersDialog";
+import { DeleteWorkerDialog } from "./DeleteWorkerDialog";
+import { DeleteProjectDialog } from "./DeleteProjectDialog";
 import { Users, Building, UserCheck, Loader2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useQueryClient } from "@tanstack/react-query";
@@ -95,7 +97,13 @@ export function WorkersManagement() {
                       </div>
                     )}
                   </div>
-                  <EditWorkerDialog worker={worker} />
+                  <div className="flex gap-2">
+                    <EditWorkerDialog worker={worker} />
+                    <DeleteWorkerDialog 
+                      worker={worker} 
+                      activeAssignments={workerAssignments.length}
+                    />
+                  </div>
                 </div>
               );
             })}
@@ -156,7 +164,13 @@ export function WorkersManagement() {
                       </div>
                     )}
                   </div>
-                  <ProjectDialog project={project} isEdit={true} />
+                  <div className="flex gap-2">
+                    <ProjectDialog project={project} isEdit={true} />
+                    <DeleteProjectDialog 
+                      project={project} 
+                      activeAssignments={projectAssignments.length}
+                    />
+                  </div>
                 </div>
               );
             })}

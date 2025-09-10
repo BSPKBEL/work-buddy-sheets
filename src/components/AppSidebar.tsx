@@ -44,7 +44,7 @@ const navigationItems = [
     items: [
       { title: "Все работники", url: "#workers", icon: Users },
       { title: "Рейтинг", url: "#workers-rating", icon: Star },
-      { title: "Добавить работника", url: "#add-worker", icon: Users }
+      { title: "Управление навыками", url: "#add-worker", icon: Users }
     ]
   },
   {
@@ -52,8 +52,16 @@ const navigationItems = [
     url: "#projects",
     icon: Building,
     items: [
-      { title: "Все проекты", url: "#projects", icon: Building },
+      { title: "Объекты работ", url: "#projects", icon: Building },
       { title: "Расходы", url: "#expenses", icon: DollarSign }
+    ]
+  },
+  {
+    title: "Клиенты",
+    url: "#clients",
+    icon: Users,
+    items: [
+      { title: "Управление клиентами", url: "#clients", icon: Users }
     ]
   },
   {
@@ -69,12 +77,18 @@ const navigationItems = [
     items: []
   },
   {
+    title: "Безопасность",
+    url: "#security",
+    icon: Shield,
+    items: []
+  },
+  {
     title: "Настройки",
     url: "#settings",
     icon: Settings,
     items: [
       { title: "Telegram бот", url: "#telegram", icon: Bot },
-      { title: "Система", url: "#system", icon: Settings }
+      { title: "AI настройки", url: "#ai-settings", icon: Settings }
     ]
   }
 ];
@@ -86,7 +100,7 @@ interface AppSidebarProps {
 
 export function AppSidebar({ activeSection, onSectionChange }: AppSidebarProps) {
   const { state } = useSidebar();
-  const [expandedGroups, setExpandedGroups] = useState<string[]>(["workers", "projects", "settings"]);
+  const [expandedGroups, setExpandedGroups] = useState<string[]>(["workers", "projects", "clients", "settings"]);
 
   const toggleGroup = (groupTitle: string) => {
     setExpandedGroups(prev => 
