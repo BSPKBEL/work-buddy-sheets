@@ -39,29 +39,29 @@ const navigationItems = [
   },
   {
     title: "Работники",
-    url: "#workers", 
+    url: null, // Group only - no direct URL
     icon: Users,
     items: [
-      { title: "Все работники", url: "#workers", icon: Users },
-      { title: "Рейтинг", url: "#workers-rating", icon: Star },
-      { title: "Управление навыками", url: "#add-worker", icon: Users }
+      { title: "Список работников", url: "#workers", icon: Users },
+      { title: "Рейтинг работников", url: "#workers-rating", icon: Star },
+      { title: "Управление навыками", url: "#add-worker", icon: Crown }
     ]
   },
   {
     title: "Проекты", 
-    url: "#projects",
+    url: null, // Group only - no direct URL
     icon: Building,
     items: [
-      { title: "Объекты работ", url: "#projects", icon: Building },
-      { title: "Расходы", url: "#expenses", icon: DollarSign }
+      { title: "Список проектов", url: "#projects", icon: Building },
+      { title: "Управление расходами", url: "#expenses", icon: DollarSign }
     ]
   },
   {
     title: "Клиенты",
-    url: "#clients",
+    url: null, // Group only - no direct URL
     icon: Users,
     items: [
-      { title: "Управление клиентами", url: "#clients", icon: Users }
+      { title: "Список клиентов", url: "#clients", icon: Users }
     ]
   },
   {
@@ -84,7 +84,7 @@ const navigationItems = [
   },
   {
     title: "Настройки",
-    url: "#settings",
+    url: null, // Group only - no direct URL
     icon: Settings,
     items: [
       { title: "Telegram бот", url: "#telegram", icon: Bot },
@@ -110,7 +110,8 @@ export function AppSidebar({ activeSection, onSectionChange }: AppSidebarProps) 
     );
   };
 
-  const isActive = (url: string) => {
+  const isActive = (url: string | null) => {
+    if (!url) return false;
     const section = url.replace('#', '');
     return activeSection === section;
   };
@@ -118,7 +119,10 @@ export function AppSidebar({ activeSection, onSectionChange }: AppSidebarProps) 
   const collapsed = state === "collapsed";
   
   return (
-    <Sidebar className={collapsed ? "w-16" : "w-64"} collapsible="icon">
+    <Sidebar
+      className={`${collapsed ? "w-16" : "w-64"} sidebar-transition`} 
+      collapsible="icon"
+    >
       <SidebarHeader className="p-4 border-b border-sidebar-border">
         <div className="flex items-center gap-3">
           <div className="p-2 bg-sidebar-primary rounded-lg">
@@ -147,12 +151,15 @@ export function AppSidebar({ activeSection, onSectionChange }: AppSidebarProps) 
               <SidebarMenu>
                 <SidebarMenuItem>
                   <SidebarMenuButton 
-                    asChild
+                    asChild={group.url !== null}
                     isActive={isActive(group.url)}
                     onClick={() => {
-                      const section = group.url.replace('#', '');
-                      onSectionChange(section);
-                      if (group.items.length > 0) {
+                      if (group.url) {
+                        // Single item - navigate
+                        const section = group.url.replace('#', '');
+                        onSectionChange(section);
+                      } else if (group.items.length > 0) {
+                        // Group with subitems - only toggle
                         toggleGroup(group.title);
                       }
                     }}

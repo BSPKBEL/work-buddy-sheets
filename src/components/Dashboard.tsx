@@ -30,6 +30,7 @@ import { SecurityDashboard } from "./SecurityDashboard";
 import { AppSidebar } from "./AppSidebar";
 import { AppBreadcrumb } from "./AppBreadcrumb";
 import { GlobalSearch } from "./GlobalSearch";
+import { SettingsOverview } from "./SettingsOverview";
 import { 
   Users, 
   Calendar, 
@@ -167,6 +168,8 @@ export default function Dashboard() {
         return <SecurityDashboard />;
       case 'ai-settings':
         return <SystemSettings />;
+      case 'settings':
+        return <SettingsOverview />;
       default:
         return (
           <div className="space-y-6">
@@ -316,16 +319,16 @@ export default function Dashboard() {
         
         <SidebarInset className="flex-1">
           {/* Header */}
-          <header className="flex h-16 shrink-0 items-center gap-2 border-b bg-card px-3 md:px-4 overflow-hidden">
+          <header className="flex h-16 shrink-0 items-center gap-4 border-b bg-card px-3 md:px-4 overflow-x-auto">
             <SidebarTrigger className="-ml-1 touch-friendly flex-shrink-0" />
             
-            <div className="flex items-center gap-2 flex-1 min-w-0 overflow-hidden">
+            <div className="flex items-center gap-4 flex-1 min-w-0 flex-wrap">
               <div className="min-w-0 flex-1">
                 <AppBreadcrumb activeSection={activeSection} onSectionChange={setActiveSection} />
               </div>
             </div>
 
-            <div className="flex items-center gap-2 flex-shrink-0">
+            <div className="flex items-center gap-4 flex-shrink-0">
               <div className="hidden lg:flex items-center max-w-md">
                 <GlobalSearch onSectionChange={setActiveSection} />
               </div>
@@ -349,7 +352,7 @@ export default function Dashboard() {
                   variant="outline" 
                   size="sm"
                   onClick={handleSignOut}
-                  className="touch-friendly flex-shrink-0"
+                  className="touch-friendly flex-shrink-0 mobile-button"
                 >
                   <LogOut className="h-4 w-4 md:mr-2" />
                   <span className="hidden md:inline">Выйти</span>
