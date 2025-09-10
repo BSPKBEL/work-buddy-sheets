@@ -252,8 +252,20 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      check_security_status: {
+        Args: Record<PropertyKey, never>
+        Returns: {
+          details: string
+          security_check: string
+          status: string
+        }[]
+      }
       get_current_user_role: {
         Args: Record<PropertyKey, never>
+        Returns: string
+      }
+      promote_user_to_admin: {
+        Args: { user_email: string }
         Returns: string
       }
     }
