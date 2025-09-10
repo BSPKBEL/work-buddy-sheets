@@ -5,7 +5,6 @@ import {
   SidebarContent,
   SidebarGroup,
   SidebarGroupContent,
-  SidebarGroupLabel,
   SidebarMenu,
   SidebarMenuItem,
   SidebarMenuButton,
@@ -143,12 +142,6 @@ export function AppSidebar({ activeSection, onSectionChange }: AppSidebarProps) 
       <SidebarContent className="px-3 py-4">
         {navigationItems.map((group) => (
           <SidebarGroup key={group.title}>
-            {/* Show SidebarGroupLabel only for single items without sub-items */}
-            {group.items.length === 0 && (
-              <SidebarGroupLabel className="px-3 py-2 text-xs font-medium text-sidebar-foreground/70 uppercase tracking-wider">
-                {!collapsed && group.title}
-              </SidebarGroupLabel>
-            )}
             
             <SidebarGroupContent>
               <SidebarMenu>
