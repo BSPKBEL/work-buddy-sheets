@@ -1,6 +1,5 @@
 import { useState, useEffect } from "react";
-import { useAuth } from "@/hooks/useAuth";
-import { useProfile } from "@/hooks/useProfile";
+import { useSecureAuth } from "@/hooks/useSecureAuth";
 import { useWorkers, useAttendance, usePayments } from "@/hooks/useWorkers";
 import { useNavigate } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
@@ -48,8 +47,15 @@ import {
 } from "lucide-react";
 
 export default function Dashboard() {
-  const { user, loading, signOut } = useAuth();
-  const { data: profile, isLoading: profileLoading } = useProfile();
+  const { 
+    user, 
+    loading, 
+    signOut, 
+    isAdmin, 
+    canAccessAdmin, 
+    primaryRole,
+    isFullyLoaded
+  } = useSecureAuth();
   const { toast } = useToast();
   const navigate = useNavigate();
   const { data: workers, isLoading: workersLoading } = useWorkers();
@@ -71,7 +77,7 @@ export default function Dashboard() {
     });
   };
 
-  if (loading || profileLoading || workersLoading || attendanceLoading || paymentsLoading) {
+  if (loading || workersLoading || attendanceLoading || paymentsLoading || !isFullyLoaded) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center p-4">
         <div className="text-center">
@@ -84,10 +90,10 @@ export default function Dashboard() {
 
   if (!user) return null;
 
-  const isAdmin = profile?.role === 'admin';
+  const isAdminUser = isAdmin;
 
   // Show access denied for non-admin users
-  if (!isAdmin) {
+  if (!canAccessAdmin) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center p-4">
         <Card className="w-full max-w-md">
@@ -101,10 +107,10 @@ export default function Dashboard() {
             </p>
             <div className="space-y-2">
               <p className="text-sm text-muted-foreground">
-                Пользователь: {profile?.full_name || user.email}
+                Пользователь: {user?.email}
               </p>
               <p className="text-sm text-muted-foreground">
-                Роль: {profile?.role || 'пользователь'}
+                Роль: {primaryRole}
               </p>
             </div>
             <Button onClick={handleSignOut} variant="outline" className="w-full">
@@ -320,13 +326,13 @@ export default function Dashboard() {
               </div>
               
               <div className="flex items-center gap-2">
-                {profile?.role === 'admin' && (
+                {isAdmin && (
                   <div className="hidden sm:block text-right">
                     <p className="text-sm text-muted-foreground flex items-center justify-end gap-1">
                       <Crown className="h-3 w-3" />
                       Администратор
                     </p>
-                    <p className="font-medium text-sm truncate max-w-32">{profile?.full_name || user?.email}</p>
+                    <p className="font-medium text-sm truncate max-w-32">{user?.email}</p>
                   </div>
                 )}
                 <Button 

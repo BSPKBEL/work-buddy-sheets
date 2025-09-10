@@ -35,15 +35,5 @@ export function useProfile() {
   });
 }
 
-export async function createAdminUser(email: string) {
-  // This function should be called manually for the first admin
-  const { data, error } = await supabase
-    .from('profiles')
-    .update({ role: 'admin' })
-    .eq('user_id', (await supabase.auth.getUser()).data.user?.id)
-    .select()
-    .single();
-    
-  if (error) throw error;
-  return data;
-}
+// DEPRECATED: Use SystemSettings component to manage user roles
+// This function has been removed for security reasons

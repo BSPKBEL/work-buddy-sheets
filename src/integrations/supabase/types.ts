@@ -872,6 +872,18 @@ export type Database = {
           status: string
         }[]
       }
+      check_user_access: {
+        Args: {
+          _project_id?: string
+          _required_role: Database["public"]["Enums"]["app_role"]
+          _user_id: string
+        }
+        Returns: boolean
+      }
+      find_user_by_email: {
+        Args: { _email: string }
+        Returns: string
+      }
       get_current_user_role: {
         Args: Record<PropertyKey, never>
         Returns: string

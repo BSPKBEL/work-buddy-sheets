@@ -1,16 +1,16 @@
 project_id = "ktzixrajviveolgggilq"
 
+[functions.secure-notifications]
+verify_jwt = true
+
 [functions.telegram-webhook]
 verify_jwt = false
 
-[functions.ai-recommendations]
-verify_jwt = false
+[functions.ai-recommendations] 
+verify_jwt = true
 
-[functions.project-analytics] 
-verify_jwt = false
-
-[functions.telegram-notifications]
-verify_jwt = false
+[functions.project-analytics]
+verify_jwt = true
 
 [functions.export-reports]
-verify_jwt = false
+verify_jwt = true

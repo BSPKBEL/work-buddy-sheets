@@ -1,32 +1,33 @@
 import { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
+import { useUserRole } from "@/hooks/useUserRole";
 
 interface ProtectedRouteProps {
   children: React.ReactNode;
-  requiredRole?: string;
+  requiredRole?: 'admin' | 'foreman' | 'worker';
 }
 
 export default function ProtectedRoute({ children, requiredRole }: ProtectedRouteProps) {
   const { user, session, loading } = useAuth();
+  const { hasRole, loading: roleLoading } = useUserRole();
   const navigate = useNavigate();
 
   useEffect(() => {
-    if (!loading) {
+    if (!loading && !roleLoading) {
       if (!user || !session) {
         navigate("/auth");
         return;
       }
       
-      // TODO: Add role checking when profiles are implemented
-      // if (requiredRole && userRole !== requiredRole) {
-      //   navigate("/unauthorized");
-      //   return;
-      // }
+      if (requiredRole && !hasRole(requiredRole)) {
+        navigate("/");
+        return;
+      }
     }
-  }, [user, session, loading, navigate, requiredRole]);
+  }, [user, session, loading, roleLoading, navigate, requiredRole, hasRole]);
 
-  if (loading) {
+  if (loading || roleLoading) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="text-center">
