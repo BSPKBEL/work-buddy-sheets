@@ -1,302 +1,483 @@
-import React, { useState } from 'react';
-import { useWorkers, useAttendance, usePayments, useProjects, useWorkerAssignments } from '@/hooks/useWorkers';
+import { useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { FileDown, Calendar, User, Briefcase, DollarSign } from 'lucide-react';
-import { format, startOfMonth, endOfMonth, subMonths, isWithinInterval } from 'date-fns';
-import { ru } from 'date-fns/locale';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+// import { CalendarDateRangePicker } from '@/components/ui/calendar';
+import { useToast } from '@/hooks/use-toast';
+import { supabase } from '@/integrations/supabase/client';
+import { 
+  Download, 
+  TrendingUp, 
+  Users, 
+  DollarSign, 
+  Clock, 
+  FileText,
+  BarChart3,
+  PieChart,
+  Target,
+  AlertTriangle
+} from 'lucide-react';
+import {
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  Legend,
+  ResponsiveContainer,
+  PieChart as RechartsPieChart,
+  Cell,
+  LineChart,
+  Line,
+  Pie
+} from 'recharts';
 
-export function Reports() {
-  const { data: workers } = useWorkers();
-  const { data: attendance } = useAttendance();
-  const { data: payments } = usePayments();
-  const { data: projects } = useProjects();
-  const { data: assignments } = useWorkerAssignments();
-  
-  const [reportType, setReportType] = useState('worker-summary');
-  const [selectedPeriod, setSelectedPeriod] = useState('current-month');
-  const [selectedWorker, setSelectedWorker] = useState('all');
-  const [selectedProject, setSelectedProject] = useState('all');
+const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884d8'];
 
-  const getPeriodDates = () => {
-    const now = new Date();
-    switch (selectedPeriod) {
-      case 'current-month':
-        return { start: startOfMonth(now), end: endOfMonth(now) };
-      case 'previous-month':
-        const prevMonth = subMonths(now, 1);
-        return { start: startOfMonth(prevMonth), end: endOfMonth(prevMonth) };
-      case 'last-3-months':
-        return { start: startOfMonth(subMonths(now, 2)), end: endOfMonth(now) };
-      default:
-        return { start: startOfMonth(now), end: endOfMonth(now) };
+export default function Reports() {
+  const { toast } = useToast();
+  const [loading, setLoading] = useState(false);
+  const [reportData, setReportData] = useState<any>(null);
+  const [selectedProject, setSelectedProject] = useState<string>('all');
+  const [dateRange, setDateRange] = useState({ from: '2024-01-01', to: new Date().toISOString().split('T')[0] });
+
+  const handleExportReport = async (reportType: string, format: 'csv' | 'json' = 'csv') => {
+    try {
+      setLoading(true);
+      
+      const { data, error } = await supabase.functions.invoke('export-reports', {
+        body: {
+          reportType,
+          format,
+          filters: {
+            startDate: dateRange.from,
+            endDate: dateRange.to,
+            projectId: selectedProject !== 'all' ? selectedProject : undefined
+          }
+        }
+      });
+
+      if (error) throw error;
+
+      // Create and trigger download
+      const blob = new Blob([format === 'csv' ? data : JSON.stringify(data, null, 2)], {
+        type: format === 'csv' ? 'text/csv' : 'application/json'
+      });
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${reportType}_${new Date().toISOString().split('T')[0]}.${format}`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      window.URL.revokeObjectURL(url);
+
+      toast({
+        title: "Отчет экспортирован",
+        description: `Отчет "${reportType}" успешно сохранен в формате ${format.toUpperCase()}`,
+      });
+    } catch (error) {
+      console.error('Export error:', error);
+      toast({
+        title: "Ошибка экспорта",
+        description: "Не удалось экспортировать отчет",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
     }
   };
 
-  const { start: periodStart, end: periodEnd } = getPeriodDates();
-
-  const filteredAttendance = attendance?.filter(record => {
-    const recordDate = new Date(record.date);
-    const inPeriod = isWithinInterval(recordDate, { start: periodStart, end: periodEnd });
-    const matchesWorker = selectedWorker === 'all' || record.worker_id === selectedWorker;
-    return inPeriod && matchesWorker;
-  });
-
-  const filteredPayments = payments?.filter(payment => {
-    const paymentDate = new Date(payment.payment_date);
-    const inPeriod = isWithinInterval(paymentDate, { start: periodStart, end: periodEnd });
-    const matchesWorker = selectedWorker === 'all' || payment.worker_id === selectedWorker;
-    return inPeriod && matchesWorker;
-  });
-
-  const generateWorkerSummaryReport = () => {
-    if (!workers || !filteredAttendance || !filteredPayments) return [];
-
-    return workers.map(worker => {
-      const workerAttendance = filteredAttendance.filter(a => a.worker_id === worker.id);
-      const workerPayments = filteredPayments.filter(p => p.worker_id === worker.id);
+  const generateAnalytics = async () => {
+    try {
+      setLoading(true);
       
-      const totalDaysWorked = workerAttendance.filter(a => a.status === 'present').length;
-      const totalHours = workerAttendance
-        .filter(a => a.status === 'present')
-        .reduce((sum, a) => sum + (a.hours_worked || 8), 0);
-      const totalEarned = totalDaysWorked * worker.daily_rate;
-      const totalPaid = workerPayments.reduce((sum, p) => sum + p.amount, 0);
-      const balance = totalEarned - totalPaid;
-
-      return {
-        worker,
-        totalDaysWorked,
-        totalHours,
-        totalEarned,
-        totalPaid,
-        balance,
-        lastAttendance: workerAttendance[0]?.date,
-        lastPayment: workerPayments[0]?.payment_date
+      // Mock analytics data - in real app, this would come from the analytics function
+      const mockData = {
+        financialSummary: {
+          totalRevenue: 2500000,
+          totalCosts: 1800000,
+          profit: 700000,
+          profitMargin: 28,
+          activeProjects: 8,
+          completedProjects: 15
+        },
+        projectPerformance: [
+          { name: 'Офисное здание', budget: 500000, actual: 480000, profit: 20000 },
+          { name: 'Жилой комплекс', budget: 800000, actual: 750000, profit: 50000 },
+          { name: 'Торговый центр', budget: 1200000, actual: 1100000, profit: 100000 }
+        ],
+        expenseBreakdown: [
+          { name: 'Материалы', value: 45, amount: 810000 },
+          { name: 'Зарплата', value: 30, amount: 540000 },
+          { name: 'Аренда техники', value: 15, amount: 270000 },
+          { name: 'Транспорт', value: 10, amount: 180000 }
+        ],
+        monthlyTrends: [
+          { month: 'Янв', revenue: 200000, costs: 150000 },
+          { month: 'Фев', revenue: 220000, costs: 160000 },
+          { month: 'Мар', revenue: 180000, costs: 140000 },
+          { month: 'Апр', revenue: 250000, costs: 180000 },
+          { month: 'Май', revenue: 280000, costs: 200000 },
+          { month: 'Июн', revenue: 300000, costs: 220000 }
+        ]
       };
-    });
-  };
 
-  const generateProjectReport = () => {
-    if (!projects || !assignments || !filteredAttendance) return [];
-
-    return projects.map(project => {
-      const projectAssignments = assignments?.filter(a => a.project_id === project.id) || [];
-      const workerIds = projectAssignments.map(a => a.worker_id);
-      const projectAttendance = filteredAttendance.filter(a => workerIds.includes(a.worker_id));
+      setReportData(mockData);
       
-      const totalWorkers = projectAssignments.length;
-      const totalDaysWorked = projectAttendance.filter(a => a.status === 'present').length;
-      const totalHours = projectAttendance
-        .filter(a => a.status === 'present')
-        .reduce((sum, a) => sum + (a.hours_worked || 8), 0);
-      
-      const activeDays = [...new Set(projectAttendance.map(a => a.date))].length;
-
-      return {
-        project,
-        totalWorkers,
-        totalDaysWorked,
-        totalHours,
-        activeDays
-      };
-    });
-  };
-
-  const exportToCSV = () => {
-    const data = reportType === 'worker-summary' ? generateWorkerSummaryReport() : generateProjectReport();
-    
-    let csvContent = '';
-    if (reportType === 'worker-summary') {
-      csvContent = 'Работник,Дней работал,Часов,Заработано,Выплачено,Баланс,Последняя явка,Последняя выплата\n';
-      data.forEach((row: any) => {
-        csvContent += `"${row.worker.full_name}",${row.totalDaysWorked},${row.totalHours},${row.totalEarned},${row.totalPaid},${row.balance},"${row.lastAttendance || ''}","${row.lastPayment || ''}"\n`;
+      toast({
+        title: "Аналитика обновлена",
+        description: "Данные успешно загружены",
       });
-    } else {
-      csvContent = 'Проект,Работников,Дней работы,Часов,Активных дней\n';
-      data.forEach((row: any) => {
-        csvContent += `"${row.project.name}",${row.totalWorkers},${row.totalDaysWorked},${row.totalHours},${row.activeDays}\n`;
+    } catch (error) {
+      console.error('Analytics error:', error);
+      toast({
+        title: "Ошибка загрузки",
+        description: "Не удалось загрузить аналитику",
+        variant: "destructive",
       });
+    } finally {
+      setLoading(false);
     }
-
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-    const link = document.createElement('a');
-    const url = URL.createObjectURL(blob);
-    link.setAttribute('href', url);
-    link.setAttribute('download', `report-${reportType}-${format(new Date(), 'yyyy-MM-dd')}.csv`);
-    link.style.visibility = 'hidden';
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
   };
-
-  const workerSummaryData = generateWorkerSummaryReport();
-  const projectData = generateProjectReport();
 
   return (
     <div className="space-y-6">
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <FileDown className="h-5 w-5" />
-            Отчеты
-          </CardTitle>
-          <CardDescription>
-            Детальные отчеты по работникам и проектам
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-            <div className="space-y-2">
-              <Label>Тип отчета</Label>
-              <Select value={reportType} onValueChange={setReportType}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="worker-summary">
-                    <div className="flex items-center gap-2">
-                      <User className="h-4 w-4" />
-                      Сводка по работникам
-                    </div>
-                  </SelectItem>
-                  <SelectItem value="project-summary">
-                    <div className="flex items-center gap-2">
-                      <Briefcase className="h-4 w-4" />
-                      Сводка по проектам
-                    </div>
-                  </SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight">Отчеты и Аналитика</h1>
+          <p className="text-muted-foreground">
+            Финансовые отчеты, аналитика проектов и экспорт данных
+          </p>
+        </div>
+        <Button onClick={generateAnalytics} disabled={loading}>
+          {loading ? (
+            <Clock className="mr-2 h-4 w-4 animate-spin" />
+          ) : (
+            <BarChart3 className="mr-2 h-4 w-4" />
+          )}
+          Обновить данные
+        </Button>
+      </div>
 
-            <div className="space-y-2">
-              <Label>Период</Label>
-              <Select value={selectedPeriod} onValueChange={setSelectedPeriod}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="current-month">Текущий месяц</SelectItem>
-                  <SelectItem value="previous-month">Прошлый месяц</SelectItem>
-                  <SelectItem value="last-3-months">Последние 3 месяца</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
+      <Tabs defaultValue="overview" className="w-full">
+        <TabsList className="grid w-full grid-cols-4">
+          <TabsTrigger value="overview">Обзор</TabsTrigger>
+          <TabsTrigger value="financial">Финансы</TabsTrigger>
+          <TabsTrigger value="projects">Проекты</TabsTrigger>
+          <TabsTrigger value="export">Экспорт</TabsTrigger>
+        </TabsList>
 
-            {reportType === 'worker-summary' && (
-              <div className="space-y-2">
-                <Label>Работник</Label>
-                <Select value={selectedWorker} onValueChange={setSelectedWorker}>
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">Все работники</SelectItem>
-                    {workers?.map(worker => (
-                      <SelectItem key={worker.id} value={worker.id}>
-                        {worker.full_name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+        <TabsContent value="overview" className="space-y-6">
+          {reportData && (
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">Общая выручка</CardTitle>
+                  <DollarSign className="h-4 w-4 text-muted-foreground" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">
+                    {reportData.financialSummary.totalRevenue.toLocaleString()} ₽
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    +{reportData.financialSummary.profitMargin}% рентабельность
+                  </p>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">Прибыль</CardTitle>
+                  <TrendingUp className="h-4 w-4 text-muted-foreground" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">
+                    {reportData.financialSummary.profit.toLocaleString()} ₽
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    Маржа {reportData.financialSummary.profitMargin}%
+                  </p>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">Активные проекты</CardTitle>
+                  <Target className="h-4 w-4 text-muted-foreground" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">
+                    {reportData.financialSummary.activeProjects}
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    {reportData.financialSummary.completedProjects} завершено
+                  </p>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">Общие затраты</CardTitle>
+                  <AlertTriangle className="h-4 w-4 text-muted-foreground" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">
+                    {reportData.financialSummary.totalCosts.toLocaleString()} ₽
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    72% от выручки
+                  </p>
+                </CardContent>
+              </Card>
+            </div>
+          )}
+
+          {reportData && (
+            <div className="grid gap-6 md:grid-cols-2">
+              <Card>
+                <CardHeader>
+                  <CardTitle>Динамика по месяцам</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <ResponsiveContainer width="100%" height={300}>
+                    <LineChart data={reportData.monthlyTrends}>
+                      <CartesianGrid strokeDasharray="3 3" />
+                      <XAxis dataKey="month" />
+                      <YAxis />
+                      <Tooltip />
+                      <Legend />
+                      <Line type="monotone" dataKey="revenue" stroke="#8884d8" name="Выручка" />
+                      <Line type="monotone" dataKey="costs" stroke="#82ca9d" name="Затраты" />
+                    </LineChart>
+                  </ResponsiveContainer>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader>
+                  <CardTitle>Структура расходов</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <ResponsiveContainer width="100%" height={300}>
+                    <RechartsPieChart>
+                      <Pie
+                        data={reportData.expenseBreakdown}
+                        cx="50%"
+                        cy="50%"
+                        labelLine={false}
+                        outerRadius={80}
+                        fill="#8884d8"
+                        dataKey="value"
+                        label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
+                      >
+                        {reportData.expenseBreakdown.map((entry: any, index: number) => (
+                          <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                        ))}
+                      </Pie>
+                      <Tooltip />
+                    </RechartsPieChart>
+                  </ResponsiveContainer>
+                </CardContent>
+              </Card>
+            </div>
+          )}
+        </TabsContent>
+
+        <TabsContent value="financial" className="space-y-6">
+          {reportData && (
+            <Card>
+              <CardHeader>
+                <CardTitle>Эффективность проектов</CardTitle>
+                <CardDescription>
+                  Сравнение запланированного и фактического бюджета по проектам
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <ResponsiveContainer width="100%" height={400}>
+                  <BarChart data={reportData.projectPerformance}>
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis dataKey="name" />
+                    <YAxis />
+                    <Tooltip />
+                    <Legend />
+                    <Bar dataKey="budget" fill="#8884d8" name="Бюджет" />
+                    <Bar dataKey="actual" fill="#82ca9d" name="Фактически" />
+                  </BarChart>
+                </ResponsiveContainer>
+              </CardContent>
+            </Card>
+          )}
+        </TabsContent>
+
+        <TabsContent value="projects" className="space-y-6">
+          <Card>
+            <CardHeader>
+              <CardTitle>Аналитика проектов</CardTitle>
+              <CardDescription>
+                Детальный анализ производительности и рентабельности проектов
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="grid gap-4">
+                <div className="flex gap-4">
+                  <Select value={selectedProject} onValueChange={setSelectedProject}>
+                    <SelectTrigger className="w-[200px]">
+                      <SelectValue placeholder="Выберите проект" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Все проекты</SelectItem>
+                      <SelectItem value="1">Офисное здание</SelectItem>
+                      <SelectItem value="2">Жилой комплекс</SelectItem>
+                      <SelectItem value="3">Торговый центр</SelectItem>
+                    </SelectContent>
+                  </Select>
+
+                  <Button 
+                    variant="outline"
+                    onClick={() => handleExportReport('projects_financial')}
+                    disabled={loading}
+                  >
+                    <Download className="mr-2 h-4 w-4" />
+                    Экспорт данных
+                  </Button>
+                </div>
+
+                <div className="text-sm text-muted-foreground">
+                  Выберите проект для получения детальной аналитики с AI-инсайтами
+                </div>
               </div>
-            )}
+            </CardContent>
+          </Card>
+        </TabsContent>
 
-            <div className="flex items-end">
-              <Button onClick={exportToCSV} className="w-full">
-                <FileDown className="mr-2 h-4 w-4" />
-                Экспорт CSV
-              </Button>
-            </div>
+        <TabsContent value="export" className="space-y-6">
+          <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <FileText className="h-5 w-5" />
+                  Финансовые отчеты
+                </CardTitle>
+                <CardDescription>
+                  Отчеты по прибыли и убыткам, рентабельности проектов
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <Button 
+                  className="w-full"
+                  onClick={() => handleExportReport('projects_financial', 'csv')}
+                  disabled={loading}
+                >
+                  <Download className="mr-2 h-4 w-4" />
+                  Экспорт CSV
+                </Button>
+                <Button 
+                  variant="outline"
+                  className="w-full"
+                  onClick={() => handleExportReport('projects_financial', 'json')}
+                  disabled={loading}
+                >
+                  <Download className="mr-2 h-4 w-4" />
+                  Экспорт JSON
+                </Button>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Users className="h-5 w-5" />
+                  Отчеты по работникам
+                </CardTitle>
+                <CardDescription>
+                  Производительность, посещаемость, зарплатный фонд
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <Button 
+                  className="w-full"
+                  onClick={() => handleExportReport('workers_performance', 'csv')}
+                  disabled={loading}
+                >
+                  <Download className="mr-2 h-4 w-4" />
+                  Экспорт CSV
+                </Button>
+                <Button 
+                  variant="outline"
+                  className="w-full"
+                  onClick={() => handleExportReport('workers_performance', 'json')}
+                  disabled={loading}
+                >
+                  <Download className="mr-2 h-4 w-4" />
+                  Экспорт JSON
+                </Button>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <PieChart className="h-5 w-5" />
+                  Отчеты по расходам
+                </CardTitle>
+                <CardDescription>
+                  Детализация расходов по категориям и проектам
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <Button 
+                  className="w-full"
+                  onClick={() => handleExportReport('expenses_breakdown', 'csv')}
+                  disabled={loading}
+                >
+                  <Download className="mr-2 h-4 w-4" />
+                  Экспорт CSV
+                </Button>
+                <Button 
+                  variant="outline"
+                  className="w-full"
+                  onClick={() => handleExportReport('expenses_breakdown', 'json')}
+                  disabled={loading}
+                >
+                  <Download className="mr-2 h-4 w-4" />
+                  Экспорт JSON
+                </Button>
+              </CardContent>
+            </Card>
           </div>
 
-          <div className="text-sm text-muted-foreground mb-4">
-            Период: {format(periodStart, 'd MMMM yyyy', { locale: ru })} - {format(periodEnd, 'd MMMM yyyy', { locale: ru })}
-          </div>
-
-          {reportType === 'worker-summary' && (
-            <div className="overflow-x-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Работник</TableHead>
-                    <TableHead>Позиция</TableHead>
-                    <TableHead>Дней работал</TableHead>
-                    <TableHead>Часов</TableHead>
-                    <TableHead>Заработано</TableHead>
-                    <TableHead>Выплачено</TableHead>
-                    <TableHead>Баланс</TableHead>
-                    <TableHead>Статус</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {workerSummaryData.map((row) => (
-                    <TableRow key={row.worker.id}>
-                      <TableCell className="font-medium">{row.worker.full_name}</TableCell>
-                      <TableCell>{row.worker.position || 'Не указана'}</TableCell>
-                      <TableCell>{row.totalDaysWorked}</TableCell>
-                      <TableCell>{row.totalHours}</TableCell>
-                      <TableCell>{row.totalEarned.toLocaleString()} ₽</TableCell>
-                      <TableCell>{row.totalPaid.toLocaleString()} ₽</TableCell>
-                      <TableCell>
-                        <span className={row.balance > 0 ? 'text-warning' : row.balance < 0 ? 'text-destructive' : 'text-muted-foreground'}>
-                          {row.balance.toLocaleString()} ₽
-                        </span>
-                      </TableCell>
-                      <TableCell>
-                        <Badge variant={row.worker.status === 'active' ? 'default' : 'secondary'}>
-                          {row.worker.status === 'active' ? 'Активен' : 'Неактивен'}
-                        </Badge>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </div>
-          )}
-
-          {reportType === 'project-summary' && (
-            <div className="overflow-x-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Проект</TableHead>
-                    <TableHead>Адрес</TableHead>
-                    <TableHead>Работников</TableHead>
-                    <TableHead>Дней работы</TableHead>
-                    <TableHead>Часов</TableHead>
-                    <TableHead>Активных дней</TableHead>
-                    <TableHead>Статус</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {projectData.map((row) => (
-                    <TableRow key={row.project.id}>
-                      <TableCell className="font-medium">{row.project.name}</TableCell>
-                      <TableCell>{row.project.address || 'Не указан'}</TableCell>
-                      <TableCell>{row.totalWorkers}</TableCell>
-                      <TableCell>{row.totalDaysWorked}</TableCell>
-                      <TableCell>{row.totalHours}</TableCell>
-                      <TableCell>{row.activeDays}</TableCell>
-                      <TableCell>
-                        <Badge variant={row.project.status === 'active' ? 'default' : 'secondary'}>
-                          {row.project.status === 'active' ? 'Активен' : 'Завершен'}
-                        </Badge>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </div>
-          )}
-        </CardContent>
-      </Card>
+          <Card>
+            <CardHeader>
+              <CardTitle>Настройки экспорта</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="grid gap-4 md:grid-cols-2">
+                <div>
+                  <label className="text-sm font-medium">Период отчета</label>
+                  <div className="flex gap-2 mt-2">
+                    <input
+                      type="date"
+                      value={dateRange.from}
+                      onChange={(e) => setDateRange(prev => ({ ...prev, from: e.target.value }))}
+                      className="flex-1 rounded-md border border-input bg-background px-3 py-2 text-sm"
+                    />
+                    <input
+                      type="date"
+                      value={dateRange.to}
+                      onChange={(e) => setDateRange(prev => ({ ...prev, to: e.target.value }))}
+                      className="flex-1 rounded-md border border-input bg-background px-3 py-2 text-sm"
+                    />
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }

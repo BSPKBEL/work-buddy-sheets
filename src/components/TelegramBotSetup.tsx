@@ -1,246 +1,387 @@
-import { useState } from "react";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Alert, AlertDescription } from "@/components/ui/alert";
-import { useToast } from "@/components/ui/use-toast";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Badge } from "@/components/ui/badge";
-import { Copy, ExternalLink, Check, X, Plus } from "lucide-react";
+import { useState, useEffect } from 'react';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Badge } from '@/components/ui/badge';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Switch } from '@/components/ui/switch';
+import { useToast } from '@/hooks/use-toast';
+import { supabase } from '@/integrations/supabase/client';
+import { 
+  Send, 
+  Settings, 
+  Bell, 
+  Clock, 
+  DollarSign, 
+  MessageSquare,
+  CheckCircle,
+  XCircle,
+  Loader2
+} from 'lucide-react';
 
-export function TelegramBotSetup() {
-  const [botToken, setBotToken] = useState("");
-  const [isSettingWebhook, setIsSettingWebhook] = useState(false);
-  const [aiProvider, setAiProvider] = useState("openai");
+export default function TelegramBotSetup() {
   const { toast } = useToast();
+  const [loading, setLoading] = useState(false);
+  const [botStatus, setBotStatus] = useState('unknown');
+  const [chatId, setChatId] = useState('');
+  const [notifications, setNotifications] = useState({
+    projectUpdates: true,
+    budgetAlerts: true,
+    dailyReports: true,
+    attendanceReminders: true
+  });
 
-  // Mock secrets status - in real app this would come from API
-  const secretsStatus = {
-    TELEGRAM_BOT_TOKEN: true,
-    OPENAI_API_KEY: true,
-    DEEPSEEK_API_KEY: false,
-    AI_PROVIDER: false,
-  };
-
-  const webhookUrl = "https://ktzixrajviveolgggilq.functions.supabase.co/telegram-webhook";
-
-  const copyToClipboard = (text: string) => {
-    navigator.clipboard.writeText(text);
-    toast({
-      title: "Скопировано",
-      description: "Текст скопирован в буфер обмена",
-    });
-  };
-
-  const setWebhook = async () => {
-    if (!botToken) {
-      toast({
-        title: "Ошибка",
-        description: "Введите токен бота",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    setIsSettingWebhook(true);
-    
+  const testConnection = async () => {
     try {
-      // Проверяем токен бота
-      const botInfoResponse = await fetch(`https://api.telegram.org/bot${botToken}/getMe`);
-      const botInfo = await botInfoResponse.json();
+      setLoading(true);
       
-      if (!botInfo.ok) {
-        throw new Error('Неверный токен бота');
-      }
-
-      // Устанавливаем webhook
-      const response = await fetch(`https://api.telegram.org/bot${botToken}/setWebhook`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          url: webhookUrl,
-          drop_pending_updates: true, // Очищаем старые обновления
-        }),
+      const { data, error } = await supabase.functions.invoke('telegram-notifications', {
+        body: {
+          action: 'daily_report',
+          data: {
+            chatId: chatId,
+            activeProjects: 5,
+            workersOnSite: 12,
+            dailyExpenses: 45000,
+            completedTasks: 8
+          }
+        }
       });
 
-      const data = await response.json();
-      
-      if (data.ok) {
+      if (error) throw error;
+
+      if (data.success) {
+        setBotStatus('connected');
         toast({
-          title: "Успешно!",
-          description: `Webhook установлен для бота @${botInfo.result.username}. Бот готов к работе.`,
+          title: "Подключение успешно",
+          description: "Тестовое сообщение отправлено в Telegram",
         });
       } else {
-        throw new Error(data.description || 'Ошибка установки webhook');
+        throw new Error(data.error || 'Unknown error');
       }
     } catch (error) {
-      console.error('Error setting webhook:', error);
+      console.error('Test connection error:', error);
+      setBotStatus('error');
       toast({
-        title: "Ошибка",
-        description: error instanceof Error ? error.message : "Не удалось установить webhook",
+        title: "Ошибка подключения",
+        description: "Проверьте Chat ID и настройки бота",
         variant: "destructive",
       });
     } finally {
-      setIsSettingWebhook(false);
+      setLoading(false);
+    }
+  };
+
+  const sendNotification = async (type: string, data: any) => {
+    try {
+      setLoading(true);
+      
+      const { data: result, error } = await supabase.functions.invoke('telegram-notifications', {
+        body: {
+          action: type,
+          data: { ...data, chatId }
+        }
+      });
+
+      if (error) throw error;
+
+      toast({
+        title: "Уведомление отправлено",
+        description: `Сообщение типа "${type}" успешно доставлено`,
+      });
+    } catch (error) {
+      console.error('Send notification error:', error);
+      toast({
+        title: "Ошибка отправки",
+        description: "Не удалось отправить уведомление",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const getBotStatusIcon = () => {
+    switch (botStatus) {
+      case 'connected':
+        return <CheckCircle className="h-5 w-5 text-green-500" />;
+      case 'error':
+        return <XCircle className="h-5 w-5 text-red-500" />;
+      default:
+        return <MessageSquare className="h-5 w-5 text-gray-500" />;
     }
   };
 
   return (
-    <Card className="w-full max-w-2xl mx-auto">
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          📱 Настройка Telegram бота
-        </CardTitle>
-        <CardDescription>
-          Настройте бота для получения данных о работниках через Telegram
-        </CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-6">
-        <div className="space-y-4">
-          <h3 className="text-lg font-semibold">Статус секретов Supabase</h3>
-          <div className="grid grid-cols-2 gap-3">
-            {Object.entries(secretsStatus).map(([secret, configured]) => (
-              <div key={secret} className="flex items-center justify-between p-3 border rounded-lg">
-                <div className="flex items-center gap-2">
-                  {configured ? (
-                    <Check className="h-4 w-4 text-green-600" />
-                  ) : (
-                    <X className="h-4 w-4 text-red-600" />
-                  )}
-                  <span className="text-sm font-medium">{secret}</span>
-                </div>
-                {configured ? (
-                  <Badge variant="default" className="bg-green-100 text-green-800">
-                    Настроен
-                  </Badge>
-                ) : (
-                  <Badge variant="destructive" className="bg-red-100 text-red-800">
-                    Отсутствует
-                  </Badge>
-                )}
-              </div>
-            ))}
-          </div>
-          
-          <div className="grid grid-cols-2 gap-3">
-            {!secretsStatus.DEEPSEEK_API_KEY && (
-              <Button variant="outline" size="sm" className="flex items-center gap-2">
-                <Plus className="h-4 w-4" />
-                Добавить DeepSeek API
-              </Button>
-            )}
-            {!secretsStatus.AI_PROVIDER && (
-              <Button variant="outline" size="sm" className="flex items-center gap-2">
-                <Plus className="h-4 w-4" />
-                Добавить AI Provider
-              </Button>
-            )}
-          </div>
-        </div>
-
-        <div className="space-y-3">
-          <Label htmlFor="aiProvider">AI Провайдер</Label>
-          <Select value={aiProvider} onValueChange={setAiProvider}>
-            <SelectTrigger>
-              <SelectValue placeholder="Выберите AI провайдер" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="openai">OpenAI (универсальный)</SelectItem>
-              <SelectItem value="deepseek">DeepSeek (экономичный, только текст)</SelectItem>
-              <SelectItem value="mixed">Смешанный (DeepSeek + OpenAI для аудио/фото)</SelectItem>
-            </SelectContent>
-          </Select>
-          <p className="text-sm text-muted-foreground">
-            {aiProvider === "openai" && "Использует OpenAI для всех типов сообщений"}
-            {aiProvider === "deepseek" && "Использует только DeepSeek (дешевле, но только текст)"}
-            {aiProvider === "mixed" && "DeepSeek для текста, OpenAI для изображений и аудио"}
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight">Telegram Бот</h1>
+          <p className="text-muted-foreground">
+            Настройка уведомлений и интеграции с Telegram
           </p>
         </div>
-
-        <Alert>
-          <AlertDescription>
-            <strong>Шаги настройки:</strong>
-            <ol className="list-decimal list-inside mt-2 space-y-1">
-              <li>Создайте бота через @BotFather в Telegram</li>
-              <li>Получите API ключи от OpenAI и/или DeepSeek</li>
-              <li>Добавьте все необходимые секреты в Supabase</li>
-              <li>Выберите подходящий AI провайдер</li>
-              <li>Настройте webhook бота</li>
-            </ol>
-          </AlertDescription>
-        </Alert>
-
-        <div className="space-y-2">
-          <Label htmlFor="botToken">Токен бота</Label>
-          <Input
-            id="botToken"
-            type="password"
-            placeholder="123456789:ABCdefGHIjklMNOpqrsTUVwxyz"
-            value={botToken}
-            onChange={(e) => setBotToken(e.target.value)}
-          />
+        <div className="flex items-center gap-2">
+          {getBotStatusIcon()}
+          <Badge variant={botStatus === 'connected' ? 'default' : 'secondary'}>
+            {botStatus === 'connected' ? 'Подключен' : 
+             botStatus === 'error' ? 'Ошибка' : 'Не настроен'}
+          </Badge>
         </div>
+      </div>
 
-        <div className="space-y-2">
-          <Label>Webhook URL</Label>
-          <div className="flex items-center gap-2">
-            <Input
-              value={webhookUrl}
-              readOnly
-              className="flex-1"
-            />
-            <Button
-              variant="outline"
-              size="icon"
-              onClick={() => copyToClipboard(webhookUrl)}
-            >
-              <Copy className="h-4 w-4" />
-            </Button>
+      <Tabs defaultValue="setup" className="w-full">
+        <TabsList className="grid w-full grid-cols-3">
+          <TabsTrigger value="setup">Настройка</TabsTrigger>
+          <TabsTrigger value="notifications">Уведомления</TabsTrigger>
+          <TabsTrigger value="test">Тестирование</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="setup" className="space-y-6">
+          <Card>
+            <CardHeader>
+              <CardTitle>Подключение Telegram бота</CardTitle>
+              <CardDescription>
+                Настройте интеграцию с Telegram для получения уведомлений о проектах
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="chatId">Chat ID</Label>
+                <Input
+                  id="chatId"
+                  placeholder="Введите Chat ID"
+                  value={chatId}
+                  onChange={(e) => setChatId(e.target.value)}
+                />
+                <p className="text-sm text-muted-foreground">
+                  Отправьте сообщение боту @WorkBuddy_bot и выполните команду /start для получения Chat ID
+                </p>
+              </div>
+
+              <div className="flex gap-4">
+                <Button 
+                  onClick={testConnection}
+                  disabled={loading || !chatId}
+                >
+                  {loading ? (
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  ) : (
+                    <Send className="mr-2 h-4 w-4" />
+                  )}
+                  Тестировать подключение
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Инструкции по настройке</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="space-y-2">
+                <h4 className="font-semibold">1. Найдите бота</h4>
+                <p className="text-sm text-muted-foreground">
+                  Найдите @WorkBuddy_bot в Telegram или перейдите по ссылке t.me/WorkBuddy_bot
+                </p>
+              </div>
+              
+              <div className="space-y-2">
+                <h4 className="font-semibold">2. Запустите бота</h4>
+                <p className="text-sm text-muted-foreground">
+                  Отправьте команду /start боту для активации
+                </p>
+              </div>
+              
+              <div className="space-y-2">
+                <h4 className="font-semibold">3. Получите Chat ID</h4>
+                <p className="text-sm text-muted-foreground">
+                  Отправьте команду /chatid и скопируйте полученный ID
+                </p>
+              </div>
+              
+              <div className="space-y-2">
+                <h4 className="font-semibold">4. Настройте уведомления</h4>
+                <p className="text-sm text-muted-foreground">
+                  Введите Chat ID выше и настройте типы уведомлений во вкладке "Уведомления"
+                </p>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="notifications" className="space-y-6">
+          <Card>
+            <CardHeader>
+              <CardTitle>Типы уведомлений</CardTitle>
+              <CardDescription>
+                Выберите, какие уведомления вы хотите получать в Telegram
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              <div className="flex items-center justify-between">
+                <div className="space-y-0.5">
+                  <Label className="text-base">Обновления проектов</Label>
+                  <p className="text-sm text-muted-foreground">
+                    Уведомления об изменении статуса и прогресса проектов
+                  </p>
+                </div>
+                <Switch
+                  checked={notifications.projectUpdates}
+                  onCheckedChange={(checked) => 
+                    setNotifications(prev => ({ ...prev, projectUpdates: checked }))
+                  }
+                />
+              </div>
+
+              <div className="flex items-center justify-between">
+                <div className="space-y-0.5">
+                  <Label className="text-base">Превышение бюджета</Label>
+                  <p className="text-sm text-muted-foreground">
+                    Предупреждения при превышении бюджета проекта на 80%
+                  </p>
+                </div>
+                <Switch
+                  checked={notifications.budgetAlerts}
+                  onCheckedChange={(checked) => 
+                    setNotifications(prev => ({ ...prev, budgetAlerts: checked }))
+                  }
+                />
+              </div>
+
+              <div className="flex items-center justify-between">
+                <div className="space-y-0.5">
+                  <Label className="text-base">Ежедневные отчеты</Label>
+                  <p className="text-sm text-muted-foreground">
+                    Сводка активности за день в 18:00
+                  </p>
+                </div>
+                <Switch
+                  checked={notifications.dailyReports}
+                  onCheckedChange={(checked) => 
+                    setNotifications(prev => ({ ...prev, dailyReports: checked }))
+                  }
+                />
+              </div>
+
+              <div className="flex items-center justify-between">
+                <div className="space-y-0.5">
+                  <Label className="text-base">Напоминания о посещаемости</Label>
+                  <p className="text-sm text-muted-foreground">
+                    Напоминания работникам отметиться на объекте
+                  </p>
+                </div>
+                <Switch
+                  checked={notifications.attendanceReminders}
+                  onCheckedChange={(checked) => 
+                    setNotifications(prev => ({ ...prev, attendanceReminders: checked }))
+                  }
+                />
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="test" className="space-y-6">
+          <div className="grid gap-6 md:grid-cols-2">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Bell className="h-5 w-5" />
+                  Тестовые уведомления
+                </CardTitle>
+                <CardDescription>
+                  Отправьте тестовые сообщения для проверки интеграции
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <Button 
+                  className="w-full"
+                  onClick={() => sendNotification('project_status_update', {
+                    projectName: 'Тестовый проект',
+                    status: 'В работе',
+                    progress: 65,
+                    budget: 500000,
+                    spent: 320000
+                  })}
+                  disabled={loading || !chatId}
+                >
+                  <Settings className="mr-2 h-4 w-4" />
+                  Обновление проекта
+                </Button>
+                
+                <Button 
+                  variant="outline"
+                  className="w-full"
+                  onClick={() => sendNotification('budget_alert', {
+                    projectName: 'Тестовый проект',
+                    budget: 500000,
+                    spent: 450000,
+                    overrun: 15
+                  })}
+                  disabled={loading || !chatId}
+                >
+                  <DollarSign className="mr-2 h-4 w-4" />
+                  Превышение бюджета
+                </Button>
+                
+                <Button 
+                  variant="outline"
+                  className="w-full"
+                  onClick={() => sendNotification('attendance_reminder', {
+                    workerName: 'Иван Петров',
+                    projectName: 'Офисное здание',
+                    time: '08:00'
+                  })}
+                  disabled={loading || !chatId}
+                >
+                  <Clock className="mr-2 h-4 w-4" />
+                  Напоминание работнику
+                </Button>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle>Доступные команды бота</CardTitle>
+                <CardDescription>
+                  Команды для взаимодействия с ботом
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="space-y-3">
+                  <div>
+                    <code className="bg-muted px-2 py-1 rounded text-sm">/start</code>
+                    <p className="text-sm text-muted-foreground mt-1">Запуск бота</p>
+                  </div>
+                  
+                  <div>
+                    <code className="bg-muted px-2 py-1 rounded text-sm">/chatid</code>
+                    <p className="text-sm text-muted-foreground mt-1">Получить Chat ID</p>
+                  </div>
+                  
+                  <div>
+                    <code className="bg-muted px-2 py-1 rounded text-sm">/status</code>
+                    <p className="text-sm text-muted-foreground mt-1">Статус активных проектов</p>
+                  </div>
+                  
+                  <div>
+                    <code className="bg-muted px-2 py-1 rounded text-sm">/expense [сумма] [категория]</code>
+                    <p className="text-sm text-muted-foreground mt-1">Добавить расход</p>
+                  </div>
+                  
+                  <div>
+                    <code className="bg-muted px-2 py-1 rounded text-sm">/attendance</code>
+                    <p className="text-sm text-muted-foreground mt-1">Отметиться на объекте</p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
           </div>
-        </div>
-
-        <Button
-          onClick={setWebhook}
-          disabled={isSettingWebhook || !botToken}
-          className="w-full"
-        >
-          {isSettingWebhook ? "Настройка..." : "Настроить бота"}
-        </Button>
-
-        <Alert>
-          <AlertDescription>
-            <strong>Возможности бота:</strong>
-            <ul className="list-disc list-inside mt-2 space-y-1">
-              <li><strong>Умный анализ текста:</strong> Используя {aiProvider === 'openai' ? 'OpenAI' : aiProvider === 'deepseek' ? 'DeepSeek' : 'DeepSeek + OpenAI'}</li>
-              <li><strong>Добавить работника:</strong> "Добавить работника Иван Петров, телефон +79001234567, ставка 3000 рублей в день"</li>
-              <li><strong>Отметить присутствие:</strong> "Иван Петров сегодня работал 8 часов" или "Петров болеет"</li>
-              <li><strong>Записать выплату:</strong> "Выплатил Иванову 15000 рублей за неделю"</li>
-              <li><strong>Анализ изображений:</strong> Отправьте фото документа или записи (только с OpenAI)</li>
-              <li><strong>Голосовые сообщения:</strong> Запишите голосовое сообщение (только с OpenAI)</li>
-            </ul>
-          </AlertDescription>
-        </Alert>
-
-        <div className="flex items-center justify-between pt-4 border-t">
-          <span className="text-sm text-muted-foreground">
-            Нужна помощь с настройкой?
-          </span>
-          <Button variant="outline" size="sm" asChild>
-            <a
-              href="https://supabase.com/dashboard/project/ktzixrajviveolgggilq/settings/functions"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="flex items-center gap-2"
-            >
-              Настроить секреты
-              <ExternalLink className="h-4 w-4" />
-            </a>
-          </Button>
-        </div>
-      </CardContent>
-    </Card>
+        </TabsContent>
+      </Tabs>
+    </div>
   );
 }

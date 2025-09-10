@@ -186,7 +186,7 @@ export function AppSidebar({ activeSection, onSectionChange }: AppSidebarProps) 
       <SidebarFooter className="p-4 border-t border-sidebar-border">
         {!collapsed && (
           <div className="text-xs text-sidebar-foreground/50 text-center">
-            Версия 2.0 • Этап 1
+            Версия 3.0 • Этап 3 • AI + Телеграм
           </div>
         )}
       </SidebarFooter>
