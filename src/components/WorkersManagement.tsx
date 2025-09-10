@@ -1,27 +1,26 @@
+import { useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Separator } from "@/components/ui/separator";
-import { useWorkers, useProjects, useWorkerAssignments } from "@/hooks/useWorkers";
+import { Input } from "@/components/ui/input";
+import { useWorkers, useWorkerAssignments } from "@/hooks/useWorkers";
 import { AddWorkerDialog } from "./AddWorkerDialog";
-import { EditWorkerDialog } from "./EditWorkerDialog";
-import { ProjectDialog } from "./ProjectDialog";
+import { WorkerDetailDialog } from "./WorkerDetailDialog";
 import { AssignWorkersDialog } from "./AssignWorkersDialog";
-import { DeleteWorkerDialog } from "./DeleteWorkerDialog";
-import { DeleteProjectDialog } from "./DeleteProjectDialog";
-import { Users, Building, UserCheck, Loader2 } from "lucide-react";
+import { Users, UserCheck, Loader2, Search, Info } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useQueryClient } from "@tanstack/react-query";
-import { useToast } from "@/components/ui/use-toast";
+import { useToast } from "@/hooks/use-toast";
 
 export function WorkersManagement() {
   const { data: workers, isLoading: workersLoading } = useWorkers();
-  const { data: projects, isLoading: projectsLoading } = useProjects();
   const { data: assignments, isLoading: assignmentsLoading } = useWorkerAssignments();
+  const [selectedWorker, setSelectedWorker] = useState<any>(null);
+  const [searchTerm, setSearchTerm] = useState("");
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
-  if (workersLoading || projectsLoading || assignmentsLoading) {
+  if (workersLoading || assignmentsLoading) {
     return (
       <div className="flex items-center justify-center p-8">
         <Loader2 className="h-8 w-8 animate-spin" />
@@ -39,15 +38,12 @@ export function WorkersManagement() {
     return statusMap[status as keyof typeof statusMap] || { label: status, variant: "secondary" as const };
   };
 
-  const getProjectStatusBadge = (status: string) => {
-    const statusMap = {
-      active: { label: "Активный", variant: "default" as const },
-      completed: { label: "Завершён", variant: "secondary" as const },
-      paused: { label: "Приостановлен", variant: "outline" as const },
-      cancelled: { label: "Отменён", variant: "destructive" as const }
-    };
-    return statusMap[status as keyof typeof statusMap] || { label: status, variant: "secondary" as const };
-  };
+  // Filter workers based on search term
+  const filteredWorkers = workers?.filter(worker =>
+    worker.full_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    worker.phone?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    worker.position?.toLowerCase().includes(searchTerm.toLowerCase())
+  ) || [];
 
   return (
     <div className="space-y-6">
@@ -58,16 +54,28 @@ export function WorkersManagement() {
             <div>
               <CardTitle className="flex items-center gap-2">
                 <Users className="h-5 w-5" />
-                Список сотрудников ({workers?.length || 0})
+                Список сотрудников ({filteredWorkers.length})
               </CardTitle>
               <CardDescription>Управление данными работников</CardDescription>
             </div>
             <AddWorkerDialog />
           </div>
         </CardHeader>
-        <CardContent>
+        <CardContent className="space-y-4">
+          {/* Search */}
+          <div className="relative">
+            <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder="Поиск работников..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="pl-10"
+            />
+          </div>
+
+          {/* Workers Grid */}
           <div className="grid gap-4">
-            {workers?.map((worker) => {
+            {filteredWorkers.map((worker) => {
               const status = getStatusBadge(worker.status);
               const workerAssignments = assignments?.filter(a => a.worker_id === worker.id && !a.end_date) || [];
               
@@ -97,86 +105,27 @@ export function WorkersManagement() {
                       </div>
                     )}
                   </div>
-                  <div className="flex gap-2">
-                    <EditWorkerDialog worker={worker} />
-                    <DeleteWorkerDialog 
-                      worker={worker} 
-                      activeAssignments={workerAssignments.length}
-                    />
-                  </div>
+                  <Button 
+                    size="sm" 
+                    variant="outline"
+                    onClick={() => setSelectedWorker(worker)}
+                    className="flex items-center gap-2"
+                  >
+                    <Info className="h-4 w-4" />
+                    Подробнее
+                  </Button>
                 </div>
               );
             })}
+            {filteredWorkers.length === 0 && workers && workers.length > 0 && (
+              <div className="text-center py-8 text-muted-foreground">
+                Работники не найдены. Попробуйте изменить поисковый запрос.
+              </div>
+            )}
+            
             {(!workers || workers.length === 0) && (
               <div className="text-center py-8 text-muted-foreground">
                 Нет добавленных работников
-              </div>
-            )}
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Projects Section */}
-      <Card>
-        <CardHeader>
-          <div className="flex items-center justify-between">
-            <div>
-              <CardTitle className="flex items-center gap-2">
-                <Building className="h-5 w-5" />
-                Активные объекты ({projects?.length || 0})
-              </CardTitle>
-              <CardDescription>Управление объектами и проектами</CardDescription>
-            </div>
-            <ProjectDialog />
-          </div>
-        </CardHeader>
-        <CardContent>
-          <div className="grid gap-4">
-            {projects?.map((project) => {
-              const status = getProjectStatusBadge(project.status);
-              const projectAssignments = assignments?.filter(a => a.project_id === project.id && !a.end_date) || [];
-              
-              return (
-                <div key={project.id} className="flex items-center justify-between p-4 border rounded-lg">
-                  <div className="space-y-1">
-                    <div className="flex items-center gap-2">
-                      <h4 className="font-medium">{project.name}</h4>
-                      <Badge variant={status.variant}>{status.label}</Badge>
-                    </div>
-                    {project.address && (
-                      <div className="text-sm text-muted-foreground">
-                        Адрес: {project.address}
-                      </div>
-                    )}
-                    {project.description && (
-                      <div className="text-sm text-muted-foreground">
-                        {project.description}
-                      </div>
-                    )}
-                    <div className="text-sm text-muted-foreground">
-                      {project.start_date && <span>Начало: {new Date(project.start_date).toLocaleDateString()}</span>}
-                      {project.start_date && project.end_date && <span> • </span>}
-                      {project.end_date && <span>Окончание: {new Date(project.end_date).toLocaleDateString()}</span>}
-                    </div>
-                    {projectAssignments.length > 0 && (
-                      <div className="text-sm text-muted-foreground">
-                        Работников: {projectAssignments.length}
-                      </div>
-                    )}
-                  </div>
-                  <div className="flex gap-2">
-                    <ProjectDialog project={project} isEdit={true} />
-                    <DeleteProjectDialog 
-                      project={project} 
-                      activeAssignments={projectAssignments.length}
-                    />
-                  </div>
-                </div>
-              );
-            })}
-            {(!projects || projects.length === 0) && (
-              <div className="text-center py-8 text-muted-foreground">
-                Нет созданных объектов
               </div>
             )}
           </div>
@@ -254,6 +203,15 @@ export function WorkersManagement() {
           </div>
         </CardContent>
       </Card>
+
+      {/* Worker Detail Dialog */}
+      {selectedWorker && (
+        <WorkerDetailDialog
+          worker={selectedWorker}
+          open={!!selectedWorker}
+          onOpenChange={(open) => !open && setSelectedWorker(null)}
+        />
+      )}
     </div>
   );
 }

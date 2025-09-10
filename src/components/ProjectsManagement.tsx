@@ -10,6 +10,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useProjects, useClients, useCreateProject, useCreateClient } from "@/hooks/useProjects";
+import { useWorkerAssignments } from "@/hooks/useWorkers";
 import { format } from "date-fns";
 import { ru } from "date-fns/locale";
 import { 
@@ -21,8 +22,12 @@ import {
   TrendingUp,
   Phone,
   Mail,
-  MapPin
+  MapPin,
+  UserCheck
 } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
+import { useQueryClient } from "@tanstack/react-query";
+import { useToast } from "@/hooks/use-toast";
 
 const getStatusBadge = (status: string) => {
   const statusMap = {
@@ -334,8 +339,11 @@ function ProjectDialog() {
 export function ProjectsManagement() {
   const { data: projects, isLoading: projectsLoading } = useProjects();
   const { data: clients, isLoading: clientsLoading } = useClients();
+  const { data: assignments, isLoading: assignmentsLoading } = useWorkerAssignments();
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
 
-  if (projectsLoading || clientsLoading) {
+  if (projectsLoading || clientsLoading || assignmentsLoading) {
     return (
       <div className="flex items-center justify-center py-8">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
@@ -554,6 +562,79 @@ export function ProjectsManagement() {
               Нет проектов. Создайте первый проект для начала работы.
             </p>
           )}
+        </CardContent>
+      </Card>
+
+      {/* Активные назначения на объекты */}
+      <Card>
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle className="flex items-center gap-2">
+                <UserCheck className="h-5 w-5" />
+                Активные назначения ({assignments?.filter(a => !a.end_date).length || 0})
+              </CardTitle>
+              <CardDescription>Текущие назначения работников на объекты</CardDescription>
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent>
+          <div className="grid gap-4">
+            {assignments?.filter(a => !a.end_date).map((assignment) => (
+              <div key={assignment.id} className="flex items-center justify-between p-4 border rounded-lg">
+                <div className="space-y-1">
+                  <div className="flex items-center gap-2">
+                    <h4 className="font-medium">{assignment.worker?.full_name}</h4>
+                    <Badge variant="outline">
+                      {assignment.role === 'worker' ? 'Рабочий' : assignment.role === 'foreman' ? 'Бригадир' : 'Помощник'}
+                    </Badge>
+                  </div>
+                  <div className="text-sm text-muted-foreground">
+                    Объект: {assignment.project?.name}
+                  </div>
+                  {assignment.foreman && (
+                    <div className="text-sm text-muted-foreground">
+                      Бригадир: {assignment.foreman.full_name}
+                    </div>
+                  )}
+                  <div className="text-sm text-muted-foreground">
+                    Начало: {new Date(assignment.start_date).toLocaleDateString()}
+                  </div>
+                </div>
+                <Button 
+                  variant="outline" 
+                  size="sm"
+                  onClick={async () => {
+                    try {
+                      await supabase
+                        .from("worker_assignments")
+                        .update({ end_date: new Date().toISOString().split('T')[0] })
+                        .eq("id", assignment.id);
+                      
+                      queryClient.invalidateQueries({ queryKey: ["worker_assignments"] });
+                      toast({
+                        title: "Успешно!",
+                        description: "Назначение завершено",
+                      });
+                    } catch (error) {
+                      toast({
+                        title: "Ошибка",
+                        description: "Не удалось завершить назначение",
+                        variant: "destructive",
+                      });
+                    }
+                  }}
+                >
+                  Завершить
+                </Button>
+              </div>
+            ))}
+            {(!assignments || assignments.filter(a => !a.end_date).length === 0) && (
+              <div className="text-center py-8 text-muted-foreground">
+                Нет активных назначений
+              </div>
+            )}
+          </div>
         </CardContent>
       </Card>
     </div>
