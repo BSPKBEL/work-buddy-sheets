@@ -1,12 +1,15 @@
 import { useState, useEffect } from "react";
 import { useAuth } from "@/hooks/useAuth";
+import { useProfile } from "@/hooks/useProfile";
 import { useWorkers, useAttendance, usePayments } from "@/hooks/useWorkers";
 import { useNavigate } from "react-router-dom";
+import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { format } from "date-fns";
 import { ru } from "date-fns/locale";
 import { AddWorkerDialog } from "./AddWorkerDialog";
@@ -27,11 +30,16 @@ import {
   Activity,
   TrendingUp,
   FileText,
-  Bot
+  Bot,
+  Crown,
+  Shield,
+  AlertTriangle
 } from "lucide-react";
 
 export default function Dashboard() {
   const { user, loading, signOut } = useAuth();
+  const { data: profile, isLoading: profileLoading } = useProfile();
+  const { toast } = useToast();
   const navigate = useNavigate();
   const { data: workers, isLoading: workersLoading } = useWorkers();
   const { data: attendance, isLoading: attendanceLoading } = useAttendance();
@@ -43,18 +51,59 @@ export default function Dashboard() {
     }
   }, [user, loading, navigate]);
 
-  if (loading || workersLoading || attendanceLoading || paymentsLoading) {
+  const handleSignOut = async () => {
+    await signOut();
+    toast({
+      title: "Выход выполнен",
+      description: "До свидания!",
+    });
+  };
+
+  if (loading || profileLoading || workersLoading || attendanceLoading || paymentsLoading) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center p-4">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
-          <p className="text-muted-foreground">Загрузка...</p>
+          <p className="text-muted-foreground">Загрузка защищенной системы...</p>
         </div>
       </div>
     );
   }
 
   if (!user) return null;
+
+  const isAdmin = profile?.role === 'admin';
+
+  // Show access denied for non-admin users
+  if (!isAdmin) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center p-4">
+        <Card className="w-full max-w-md">
+          <CardHeader className="text-center">
+            <Shield className="h-12 w-12 text-destructive mx-auto mb-4" />
+            <CardTitle className="text-destructive">Доступ ограничен</CardTitle>
+          </CardHeader>
+          <CardContent className="text-center space-y-4">
+            <p className="text-muted-foreground">
+              У вас нет прав доступа к системе управления. Обратитесь к администратору для получения доступа.
+            </p>
+            <div className="space-y-2">
+              <p className="text-sm text-muted-foreground">
+                Пользователь: {profile?.full_name || user.email}
+              </p>
+              <p className="text-sm text-muted-foreground">
+                Роль: {profile?.role || 'пользователь'}
+              </p>
+            </div>
+            <Button onClick={handleSignOut} variant="outline" className="w-full">
+              <LogOut className="mr-2 h-4 w-4" />
+              Выйти
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   // Calculate statistics
   const totalWorkers = workers?.length || 0;
@@ -83,25 +132,29 @@ export default function Dashboard() {
           <div className="text-white">
             <div className="flex items-center gap-3 mb-2">
               <div className="p-2 bg-white/10 rounded-lg backdrop-blur-sm">
-                <Users className="h-6 w-6" />
+                <Shield className="h-6 w-6" />
               </div>
               <div>
                 <h1 className="text-2xl md:text-3xl font-bold">СтройМенеджер</h1>
-                <p className="text-sm opacity-90 flex items-center gap-1">
+                <p className="text-sm opacity-90 flex items-center gap-2">
                   <span className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></span>
-                  Безопасная система управления
+                  Защищенная система управления
+                  <Crown className="h-4 w-4 ml-1" />
                 </p>
               </div>
             </div>
           </div>
           <div className="flex items-center gap-4">
             <div className="hidden md:block text-white text-right">
-              <p className="text-sm opacity-90">Авторизован как</p>
-              <p className="font-medium">{user?.email}</p>
+              <p className="text-sm opacity-90 flex items-center justify-end gap-1">
+                <Crown className="h-3 w-3" />
+                Администратор
+              </p>
+              <p className="font-medium">{profile?.full_name || user?.email}</p>
             </div>
             <Button 
               variant="outline" 
-              onClick={signOut}
+              onClick={handleSignOut}
               className="bg-white/10 text-white border-white/30 hover:bg-white/20 backdrop-blur-sm"
             >
               <LogOut className="mr-2 h-4 w-4" />
@@ -112,6 +165,15 @@ export default function Dashboard() {
       </div>
 
       <div className="container mx-auto px-4 py-8">
+        {/* Security Notice */}
+        <Alert className="mb-6 border-green-200 bg-green-50 text-green-800">
+          <Shield className="h-4 w-4" />
+          <AlertDescription>
+            <strong>Система защищена:</strong> Включена аутентификация и авторизация на основе ролей. 
+            Все данные защищены политиками безопасности уровня строк (RLS).
+          </AlertDescription>
+        </Alert>
+
         <Tabs defaultValue="dashboard" className="w-full dashboard-tabs">
           <TabsList className="grid w-full grid-cols-2 md:grid-cols-5 mb-8 tabs-list">
             <TabsTrigger value="dashboard" className="flex items-center gap-2">
