@@ -119,6 +119,9 @@ export function TemporaryPermissions() {
 
     setLoading(true);
     try {
+      // Вычисляем дату истечения
+      const expiresAt = addHours(new Date(), parseInt(newPermission.expires_in));
+      
       // Упрощенная версия для демо - в реальном приложении нужна проверка пользователя
       const { error } = await supabase
         .from('temporary_permissions')
