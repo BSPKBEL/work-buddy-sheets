@@ -474,7 +474,7 @@ export function ProjectsManagement() {
             <div>
               <CardTitle className="flex items-center gap-2">
                 <Building className="h-5 w-5" />
-                Проекты
+                Управление проектами
               </CardTitle>
               <CardDescription>
                 Управление проектами, контроль прогресса и бюджета

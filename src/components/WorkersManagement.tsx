@@ -58,7 +58,7 @@ export function WorkersManagement() {
             <div>
               <CardTitle className="flex items-center gap-2">
                 <Users className="h-5 w-5" />
-                Работники ({workers?.length || 0})
+                Список сотрудников ({workers?.length || 0})
               </CardTitle>
               <CardDescription>Управление данными работников</CardDescription>
             </div>
@@ -123,7 +123,7 @@ export function WorkersManagement() {
             <div>
               <CardTitle className="flex items-center gap-2">
                 <Building className="h-5 w-5" />
-                Объекты работ ({projects?.length || 0})
+                Активные объекты ({projects?.length || 0})
               </CardTitle>
               <CardDescription>Управление объектами и проектами</CardDescription>
             </div>
@@ -190,7 +190,7 @@ export function WorkersManagement() {
             <div>
               <CardTitle className="flex items-center gap-2">
                 <UserCheck className="h-5 w-5" />
-                Назначения на объекты ({assignments?.filter(a => !a.end_date).length || 0})
+                Активные назначения ({assignments?.filter(a => !a.end_date).length || 0})
               </CardTitle>
               <CardDescription>Текущие назначения работников на объекты</CardDescription>
             </div>
