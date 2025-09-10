@@ -144,11 +144,75 @@ All colors MUST be HSL.
     .mobile-text {
       font-size: 0.875rem;
     }
+
+    /* Improved dialog and popover mobile handling */
+    .dialog-content {
+      width: 95vw;
+      max-width: 400px;
+    }
+
+    .popover-content {
+      width: 90vw;
+      max-width: 300px;
+    }
+    
+    /* Better form layouts on mobile */
+    .form-grid {
+      grid-template-columns: 1fr !important;
+    }
+
+    /* Mobile-friendly buttons */
+    .mobile-button {
+      min-height: 44px;
+      font-size: 0.875rem;
+    }
+    
+    /* Sidebar improvements for mobile */
+    .sidebar-mobile {
+      position: fixed;
+      top: 0;
+      left: 0;
+      height: 100vh;
+      z-index: 50;
+      background: hsl(var(--sidebar-background));
+      border-right: 1px solid hsl(var(--sidebar-border));
+    }
   }
   
   @media (max-width: 640px) {
     .stats-grid {
       grid-template-columns: 1fr;
     }
+    
+    /* Even smaller screens */
+    .dialog-content {
+      width: 98vw;
+      margin: 1rem;
+    }
+    
+    .table-cell-mobile {
+      padding: 0.5rem 0.25rem;
+      font-size: 0.75rem;
+    }
+  }
+
+  /* Enhanced dropdown and popover z-index */
+  .dropdown-content,
+  .popover-content,
+  .dialog-content,
+  .sheet-content {
+    z-index: 100 !important;
+  }
+
+  /* Ensure dropdowns have proper background */
+  .dropdown-content {
+    background: hsl(var(--popover));
+    border: 1px solid hsl(var(--border));
+  }
+
+  /* Touch-friendly interactive elements */
+  .touch-friendly {
+    min-height: 44px;
+    min-width: 44px;
   }
 }

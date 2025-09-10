@@ -299,32 +299,40 @@ export default function Dashboard() {
         
         <SidebarInset className="flex-1">
           {/* Header */}
-          <header className="flex h-16 shrink-0 items-center gap-4 border-b bg-card px-4">
-            <SidebarTrigger className="-ml-1" />
+          <header className="flex h-16 shrink-0 items-center gap-2 md:gap-4 border-b bg-card px-3 md:px-4">
+            <SidebarTrigger className="-ml-1 touch-friendly" />
             
-            <div className="flex items-center gap-4 flex-1">
+            <div className="flex items-center gap-2 md:gap-4 flex-1 min-w-0">
               <AppBreadcrumb activeSection={activeSection} onSectionChange={setActiveSection} />
             </div>
 
-            <div className="flex items-center gap-4">
+            <div className="flex items-center gap-2 md:gap-4">
               <div className="hidden md:flex items-center gap-4 flex-1 max-w-md">
                 <GlobalSearch onSectionChange={setActiveSection} />
               </div>
               
+              {/* Mobile search icon */}
+              <div className="md:hidden">
+                <GlobalSearch onSectionChange={setActiveSection} />
+              </div>
+              
               <div className="flex items-center gap-2">
-                <div className="hidden md:block text-right">
-                  <p className="text-sm text-muted-foreground flex items-center justify-end gap-1">
-                    <Crown className="h-3 w-3" />
-                    Администратор
-                  </p>
-                  <p className="font-medium text-sm">{profile?.full_name || user?.email}</p>
-                </div>
+                {profile?.role === 'admin' && (
+                  <div className="hidden sm:block text-right">
+                    <p className="text-sm text-muted-foreground flex items-center justify-end gap-1">
+                      <Crown className="h-3 w-3" />
+                      Администратор
+                    </p>
+                    <p className="font-medium text-sm truncate max-w-32">{profile?.full_name || user?.email}</p>
+                  </div>
+                )}
                 <Button 
                   variant="outline" 
                   size="sm"
                   onClick={handleSignOut}
+                  className="touch-friendly"
                 >
-                  <LogOut className="mr-2 h-4 w-4" />
+                  <LogOut className="h-4 w-4 md:mr-2" />
                   <span className="hidden md:inline">Выйти</span>
                 </Button>
               </div>
@@ -334,9 +342,9 @@ export default function Dashboard() {
           {/* Main Content */}
           <main className="flex-1 p-4 md:p-6">
             {/* Security Notice */}
-            <Alert className="mb-6 border-green-200 bg-green-50 text-green-800">
+            <Alert className="mb-4 md:mb-6 border-green-200 bg-green-50 text-green-800 dark:border-green-800 dark:bg-green-900/20 dark:text-green-400">
               <Shield className="h-4 w-4" />
-              <AlertDescription>
+              <AlertDescription className="text-sm">
                 <strong>Система защищена:</strong> Включена аутентификация и авторизация на основе ролей. 
                 Все данные защищены политиками безопасности уровня строк (RLS).
               </AlertDescription>
