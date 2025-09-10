@@ -210,6 +210,42 @@ export type Database = {
         }
         Relationships: []
       }
+      notifications_log: {
+        Row: {
+          created_at: string | null
+          id: string
+          message: string
+          metadata: Json | null
+          read_at: string | null
+          recipient: string
+          sent_at: string | null
+          status: string
+          type: string
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          message: string
+          metadata?: Json | null
+          read_at?: string | null
+          recipient: string
+          sent_at?: string | null
+          status?: string
+          type: string
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          message?: string
+          metadata?: Json | null
+          read_at?: string | null
+          recipient?: string
+          sent_at?: string | null
+          status?: string
+          type?: string
+        }
+        Relationships: []
+      }
       payments: {
         Row: {
           amount: number
@@ -864,6 +900,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      check_and_log_client_access: {
+        Args: { _action: string; _client_id: string }
+        Returns: boolean
+      }
       check_security_status: {
         Args: Record<PropertyKey, never>
         Returns: {
@@ -887,6 +927,26 @@ export type Database = {
       get_current_user_role: {
         Args: Record<PropertyKey, never>
         Returns: string
+      }
+      get_masked_client_info: {
+        Args: { _client_id: string }
+        Returns: Json
+      }
+      get_secure_client_data: {
+        Args: { _client_id?: string }
+        Returns: {
+          address: string
+          company_type: string
+          contact_person: string
+          created_at: string
+          email: string
+          id: string
+          name: string
+          notes: string
+          phone: string
+          status: string
+          updated_at: string
+        }[]
       }
       has_role_enhanced: {
         Args: {

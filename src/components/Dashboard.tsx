@@ -25,6 +25,8 @@ import SystemSettings from "./SystemSettings";
 import { TemporaryPermissions } from "./TemporaryPermissions";
 import { TwoFactorAuth } from "./TwoFactorAuth";
 import { Analytics } from "./Analytics";
+import { SecureClientsManagement } from "./SecureClientsManagement";
+import { SecurityDashboard } from "./SecurityDashboard";
 import { AppSidebar } from "./AppSidebar";
 import { AppBreadcrumb } from "./AppBreadcrumb";
 import { GlobalSearch } from "./GlobalSearch";
@@ -159,6 +161,10 @@ export default function Dashboard() {
         return <Analytics />;
       case 'telegram':
         return <TelegramBotSetup />;
+      case 'clients':
+        return <SecureClientsManagement />;
+      case 'security':
+        return <SecurityDashboard />;
       default:
         return (
           <div className="space-y-6">
