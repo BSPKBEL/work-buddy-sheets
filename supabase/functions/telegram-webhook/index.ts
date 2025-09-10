@@ -14,7 +14,9 @@ const supabase = createClient(supabaseUrl, supabaseKey);
 
 // API keys
 const openAIApiKey = Deno.env.get('OPENAI_API_KEY');
+const deepSeekApiKey = Deno.env.get('DEEPSEEK_API_KEY');
 const telegramBotToken = Deno.env.get('TELEGRAM_BOT_TOKEN');
+const aiProvider = Deno.env.get('AI_PROVIDER') || 'openai';
 
 // Bot commands
 const COMMANDS = {
@@ -83,7 +85,65 @@ async function getTelegramFile(fileId: string): Promise<Uint8Array> {
   return new Uint8Array(await response.arrayBuffer());
 }
 
-// Function to process text with OpenAI
+// Function to call AI provider
+async function callAIProvider(messages: any[], useVision: boolean = false): Promise<any> {
+  const provider = aiProvider === 'mixed' ? (useVision ? 'openai' : 'deepseek') : aiProvider;
+  
+  if (provider === 'deepseek' && deepSeekApiKey) {
+    const response = await fetch('https://api.deepseek.com/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${deepSeekApiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: 'deepseek-chat',
+        messages: messages,
+        max_tokens: 800,
+        stream: false,
+      }),
+    });
+
+    if (!response.ok) {
+      throw new Error(`DeepSeek API error: ${response.statusText}`);
+    }
+
+    return await response.json();
+  } else if (provider === 'openai' && openAIApiKey) {
+    const model = useVision ? 'gpt-4o-mini' : 'gpt-5-mini-2025-08-07';
+    const body: any = {
+      model,
+      messages,
+    };
+    
+    // Use correct parameter based on model
+    if (model.includes('gpt-5') || model.includes('gpt-4.1') || model.includes('o3') || model.includes('o4')) {
+      body.max_completion_tokens = 800;
+    } else {
+      body.max_tokens = useVision ? 500 : 800;
+      if (!useVision) body.temperature = 0.3;
+    }
+
+    const response = await fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${openAIApiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(body),
+    });
+
+    if (!response.ok) {
+      throw new Error(`OpenAI API error: ${response.statusText}`);
+    }
+
+    return await response.json();
+  } else {
+    throw new Error(`AI provider ${provider} not configured or API key missing`);
+  }
+}
+
+// Function to process text with AI
 async function processTextWithAI(text: string): Promise<any> {
   const systemPrompt = `Ты умный помощник для управления строительными работниками и проектами. 
   
@@ -118,27 +178,10 @@ async function processTextWithAI(text: string): Promise<any> {
     "message": "Понятное объяснение что будет сделано"
   }`;
 
-  const response = await fetch('https://api.openai.com/v1/chat/completions', {
-    method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${openAIApiKey}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      model: 'gpt-5-mini-2025-08-07',
-      messages: [
-        { role: 'system', content: systemPrompt },
-        { role: 'user', content: text }
-      ],
-      max_completion_tokens: 800,
-    }),
-  });
-
-  if (!response.ok) {
-    throw new Error(`OpenAI API error: ${response.statusText}`);
-  }
-
-  const data = await response.json();
+  const data = await callAIProvider([
+    { role: 'system', content: systemPrompt },
+    { role: 'user', content: text }
+  ]);
   return JSON.parse(data.choices[0].message.content);
 }
 
@@ -158,39 +201,21 @@ async function processImageWithAI(imageData: Uint8Array): Promise<any> {
     "description": "краткое описание того, что видно на фото"
   }`;
 
-  const response = await fetch('https://api.openai.com/v1/chat/completions', {
-    method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${openAIApiKey}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      model: 'gpt-4o-mini',
-      messages: [
-        { role: 'system', content: systemPrompt },
+  const data = await callAIProvider([
+    { role: 'system', content: systemPrompt },
+    { 
+      role: 'user', 
+      content: [
+        { type: 'text', text: 'Проанализируй это изображение' },
         { 
-          role: 'user', 
-          content: [
-            { type: 'text', text: 'Проанализируй это изображение' },
-            { 
-              type: 'image_url', 
-              image_url: { 
-                url: `data:image/jpeg;base64,${base64Image}` 
-              } 
-            }
-          ]
+          type: 'image_url', 
+          image_url: { 
+            url: `data:image/jpeg;base64,${base64Image}` 
+          } 
         }
-      ],
-      max_tokens: 500,
-      temperature: 0.3,
-    }),
-  });
-
-  if (!response.ok) {
-    throw new Error(`OpenAI Vision API error: ${response.statusText}`);
-  }
-
-  const data = await response.json();
+      ]
+    }
+  ], true);
   return JSON.parse(data.choices[0].message.content);
 }
 

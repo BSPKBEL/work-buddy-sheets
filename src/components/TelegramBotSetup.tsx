@@ -5,12 +5,23 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { useToast } from "@/components/ui/use-toast";
-import { Copy, ExternalLink } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Badge } from "@/components/ui/badge";
+import { Copy, ExternalLink, Check, X, Plus } from "lucide-react";
 
 export function TelegramBotSetup() {
   const [botToken, setBotToken] = useState("");
   const [isSettingWebhook, setIsSettingWebhook] = useState(false);
+  const [aiProvider, setAiProvider] = useState("openai");
   const { toast } = useToast();
+
+  // Mock secrets status - in real app this would come from API
+  const secretsStatus = {
+    TELEGRAM_BOT_TOKEN: true,
+    OPENAI_API_KEY: true,
+    DEEPSEEK_API_KEY: false,
+    AI_PROVIDER: false,
+  };
 
   const webhookUrl = "https://ktzixrajviveolgggilq.functions.supabase.co/telegram-webhook";
 
@@ -88,14 +99,76 @@ export function TelegramBotSetup() {
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-6">
+        <div className="space-y-4">
+          <h3 className="text-lg font-semibold">Статус секретов Supabase</h3>
+          <div className="grid grid-cols-2 gap-3">
+            {Object.entries(secretsStatus).map(([secret, configured]) => (
+              <div key={secret} className="flex items-center justify-between p-3 border rounded-lg">
+                <div className="flex items-center gap-2">
+                  {configured ? (
+                    <Check className="h-4 w-4 text-green-600" />
+                  ) : (
+                    <X className="h-4 w-4 text-red-600" />
+                  )}
+                  <span className="text-sm font-medium">{secret}</span>
+                </div>
+                {configured ? (
+                  <Badge variant="default" className="bg-green-100 text-green-800">
+                    Настроен
+                  </Badge>
+                ) : (
+                  <Badge variant="destructive" className="bg-red-100 text-red-800">
+                    Отсутствует
+                  </Badge>
+                )}
+              </div>
+            ))}
+          </div>
+          
+          <div className="grid grid-cols-2 gap-3">
+            {!secretsStatus.DEEPSEEK_API_KEY && (
+              <Button variant="outline" size="sm" className="flex items-center gap-2">
+                <Plus className="h-4 w-4" />
+                Добавить DeepSeek API
+              </Button>
+            )}
+            {!secretsStatus.AI_PROVIDER && (
+              <Button variant="outline" size="sm" className="flex items-center gap-2">
+                <Plus className="h-4 w-4" />
+                Добавить AI Provider
+              </Button>
+            )}
+          </div>
+        </div>
+
+        <div className="space-y-3">
+          <Label htmlFor="aiProvider">AI Провайдер</Label>
+          <Select value={aiProvider} onValueChange={setAiProvider}>
+            <SelectTrigger>
+              <SelectValue placeholder="Выберите AI провайдер" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="openai">OpenAI (универсальный)</SelectItem>
+              <SelectItem value="deepseek">DeepSeek (экономичный, только текст)</SelectItem>
+              <SelectItem value="mixed">Смешанный (DeepSeek + OpenAI для аудио/фото)</SelectItem>
+            </SelectContent>
+          </Select>
+          <p className="text-sm text-muted-foreground">
+            {aiProvider === "openai" && "Использует OpenAI для всех типов сообщений"}
+            {aiProvider === "deepseek" && "Использует только DeepSeek (дешевле, но только текст)"}
+            {aiProvider === "mixed" && "DeepSeek для текста, OpenAI для изображений и аудио"}
+          </p>
+        </div>
+
         <Alert>
           <AlertDescription>
             <strong>Шаги настройки:</strong>
             <ol className="list-decimal list-inside mt-2 space-y-1">
               <li>Создайте бота через @BotFather в Telegram</li>
-              <li>Скопируйте полученный токен</li>
-              <li>Вставьте токен в поле ниже и нажмите "Настроить бота"</li>
-              <li>Добавьте секреты OPENAI_API_KEY и TELEGRAM_BOT_TOKEN в Supabase</li>
+              <li>Получите API ключи от OpenAI и/или DeepSeek</li>
+              <li>Добавьте все необходимые секреты в Supabase</li>
+              <li>Выберите подходящий AI провайдер</li>
+              <li>Настройте webhook бота</li>
             </ol>
           </AlertDescription>
         </Alert>
@@ -139,13 +212,14 @@ export function TelegramBotSetup() {
 
         <Alert>
           <AlertDescription>
-            <strong>Как использовать:</strong>
+            <strong>Возможности бота:</strong>
             <ul className="list-disc list-inside mt-2 space-y-1">
+              <li><strong>Умный анализ текста:</strong> Используя {aiProvider === 'openai' ? 'OpenAI' : aiProvider === 'deepseek' ? 'DeepSeek' : 'DeepSeek + OpenAI'}</li>
               <li><strong>Добавить работника:</strong> "Добавить работника Иван Петров, телефон +79001234567, ставка 3000 рублей в день"</li>
               <li><strong>Отметить присутствие:</strong> "Иван Петров сегодня работал 8 часов" или "Петров болеет"</li>
               <li><strong>Записать выплату:</strong> "Выплатил Иванову 15000 рублей за неделю"</li>
-              <li><strong>Фото:</strong> Отправьте фото документа или записи</li>
-              <li><strong>Голосовое:</strong> Запишите голосовое сообщение</li>
+              <li><strong>Анализ изображений:</strong> Отправьте фото документа или записи (только с OpenAI)</li>
+              <li><strong>Голосовые сообщения:</strong> Запишите голосовое сообщение (только с OpenAI)</li>
             </ul>
           </AlertDescription>
         </Alert>
