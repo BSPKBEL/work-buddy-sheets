@@ -17,6 +17,9 @@ import { AttendanceDialog } from "./AttendanceDialog";
 import { PaymentDialog } from "./PaymentDialog";
 import { WorkersManagement } from "./WorkersManagement";
 import { WorkerRating } from "./WorkerRating";
+import { ProjectsManagement } from "./ProjectsManagement";
+import { WorkerSkillsManagement } from "./WorkerSkillsManagement";
+import { ExpenseManagement } from "./ExpenseManagement";
 import { TelegramBotSetup } from "./TelegramBotSetup";
 import { Reports } from "./Reports";
 import { Analytics } from "./Analytics";
@@ -135,6 +138,12 @@ export default function Dashboard() {
         return <WorkersManagement />;
       case 'workers-rating':
         return <WorkerRating />;
+      case 'projects':
+        return <ProjectsManagement />;
+      case 'expenses':
+        return <ExpenseManagement />;
+      case 'add-worker':
+        return <WorkerSkillsManagement />;
       case 'reports':
         return <Reports />;
       case 'analytics':
