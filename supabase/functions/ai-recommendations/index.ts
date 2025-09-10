@@ -12,18 +12,55 @@ const supabase = createClient(
   Deno.env.get('SUPABASE_ANON_KEY') ?? ''
 );
 
+const supabaseAdmin = createClient(
+  Deno.env.get('SUPABASE_URL') ?? '',
+  Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+);
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
+    // Auth check
+    const authHeader = req.headers.get('Authorization');
+    if (!authHeader) {
+      return new Response(JSON.stringify({ error: 'Unauthorized' }), { 
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 401 
+      });
+    }
+
+    const token = authHeader.replace('Bearer ', '');
+    const { data: { user }, error: authError } = await supabaseAdmin.auth.getUser(token);
+    if (authError || !user) {
+      return new Response(JSON.stringify({ error: 'Invalid token' }), { 
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 401 
+      });
+    }
+
+    // Role check
+    const { data: userRoles } = await supabaseAdmin
+      .from('user_roles')
+      .select('role')
+      .eq('user_id', user.id)
+      .eq('is_active', true);
+
+    const roles = userRoles?.map(ur => ur.role) || [];
+    const isAdmin = roles.includes('admin');
+    const isForeman = roles.includes('foreman');
+
+    if (!isAdmin && !isForeman) {
+      return new Response(JSON.stringify({ error: 'Access denied' }), { 
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 403 
+      });
+    }
+
     const { projectId, requiredSkills = [] } = await req.json();
-    
-    console.log(`Finding workers for project ${projectId} with skills:`, requiredSkills);
+    console.log(`AI Recommendations request from ${user.email} for project ${projectId}`);
 
     // Get project details
-    const { data: project, error: projectError } = await supabase
+    const { data: project, error: projectError } = await supabaseAdmin
       .from('projects')
       .select('*')
       .eq('id', projectId)
@@ -31,6 +68,22 @@ serve(async (req) => {
 
     if (projectError) {
       throw new Error(`Project not found: ${projectError.message}`);
+    }
+
+    // For foremen, verify project access
+    if (isForeman && !isAdmin) {
+      const { data: assignment } = await supabaseAdmin
+        .from('worker_assignments')
+        .select('id')
+        .eq('project_id', projectId)
+        .eq('foreman_id', user.id)
+        .single();
+
+      if (!assignment) {
+        return new Response(JSON.stringify({ error: 'Project access denied' }), { 
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 403 
+        });
+      }
     }
 
     // Get available workers with their skills
