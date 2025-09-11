@@ -108,6 +108,15 @@ All colors MUST be HSL.
     @apply bg-background text-foreground;
   }
 
+  /* Ensure all overlay components have maximum z-index */
+  [data-radix-popper-content-wrapper],
+  [data-radix-dropdown-menu-content],
+  [data-radix-select-content],
+  [data-radix-popover-content],
+  [data-radix-tooltip-content] {
+    z-index: 9999 !important;
+  }
+
   /* Mobile optimizations */
   @media (max-width: 768px) {
     .dashboard-hero {
