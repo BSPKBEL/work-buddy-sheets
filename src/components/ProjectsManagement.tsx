@@ -25,6 +25,7 @@ import {
   MapPin,
   UserCheck
 } from "lucide-react";
+import { ProjectDialog } from "@/components/ProjectDialog";
 import { supabase } from "@/integrations/supabase/client";
 import { useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
@@ -185,165 +186,6 @@ function ClientDialog() {
   );
 }
 
-function ProjectDialog() {
-  const [open, setOpen] = useState(false);
-  const [formData, setFormData] = useState({
-    name: "",
-    description: "",
-    client_id: "",
-    address: "",
-    budget: "",
-    start_date: "",
-    end_date: "",
-    priority: "medium",
-    status: "active"
-  });
-
-  const { data: clients } = useClients();
-  const createProject = useCreateProject();
-
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    const projectData = {
-      ...formData,
-      budget: formData.budget ? parseFloat(formData.budget) : null,
-      client_id: formData.client_id || null,
-      start_date: formData.start_date || null,
-      end_date: formData.end_date || null
-    };
-
-    createProject.mutate(projectData, {
-      onSuccess: () => {
-        setOpen(false);
-        setFormData({
-          name: "",
-          description: "",
-          client_id: "",
-          address: "",
-          budget: "",
-          start_date: "",
-          end_date: "",
-          priority: "medium",
-          status: "active"
-        });
-      }
-    });
-  };
-
-  return (
-    <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>
-        <Button>
-          <Plus className="mr-2 h-4 w-4" />
-          Новый проект
-        </Button>
-      </DialogTrigger>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>Новый проект</DialogTitle>
-          <DialogDescription>
-            Создайте новый проект для управления работами
-          </DialogDescription>
-        </DialogHeader>
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div>
-            <Label htmlFor="name">Название проекта *</Label>
-            <Input
-              id="name"
-              value={formData.name}
-              onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-              required
-            />
-          </div>
-
-          <div>
-            <Label htmlFor="client_id">Клиент</Label>
-            <Select value={formData.client_id} onValueChange={(value) => setFormData({ ...formData, client_id: value })}>
-              <SelectTrigger>
-                <SelectValue placeholder="Выберите клиента" />
-              </SelectTrigger>
-              <SelectContent>
-                {clients?.map((client) => (
-                  <SelectItem key={client.id} value={client.id}>
-                    {client.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-
-          <div>
-            <Label htmlFor="description">Описание</Label>
-            <Textarea
-              id="description"
-              value={formData.description}
-              onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-            />
-          </div>
-
-          <div>
-            <Label htmlFor="address">Адрес объекта</Label>
-            <Input
-              id="address"
-              value={formData.address}
-              onChange={(e) => setFormData({ ...formData, address: e.target.value })}
-            />
-          </div>
-
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <Label htmlFor="start_date">Дата начала</Label>
-              <Input
-                id="start_date"
-                type="date"
-                value={formData.start_date}
-                onChange={(e) => setFormData({ ...formData, start_date: e.target.value })}
-              />
-            </div>
-            <div>
-              <Label htmlFor="end_date">Дата окончания</Label>
-              <Input
-                id="end_date"
-                type="date"
-                value={formData.end_date}
-                onChange={(e) => setFormData({ ...formData, end_date: e.target.value })}
-              />
-            </div>
-          </div>
-
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <Label htmlFor="budget">Бюджет (₽)</Label>
-              <Input
-                id="budget"
-                type="number"
-                value={formData.budget}
-                onChange={(e) => setFormData({ ...formData, budget: e.target.value })}
-              />
-            </div>
-            <div>
-              <Label htmlFor="priority">Приоритет</Label>
-              <Select value={formData.priority} onValueChange={(value) => setFormData({ ...formData, priority: value })}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="low">Низкий</SelectItem>
-                  <SelectItem value="medium">Средний</SelectItem>
-                  <SelectItem value="high">Высокий</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-
-          <Button type="submit" className="w-full" disabled={createProject.isPending}>
-            {createProject.isPending ? "Создание..." : "Создать проект"}
-          </Button>
-        </form>
-      </DialogContent>
-    </Dialog>
-  );
-}
 
 export function ProjectsManagement() {
   const { data: projects, isLoading: projectsLoading } = useProjects();
@@ -512,6 +354,7 @@ export function ProjectsManagement() {
                   <TableHead>Статус</TableHead>
                   <TableHead>Приоритет</TableHead>
                   <TableHead>Период</TableHead>
+                  <TableHead>Действия</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -560,6 +403,9 @@ export function ProjectsManagement() {
                             <p>До: {format(new Date(project.end_date), 'dd.MM.yyyy', { locale: ru })}</p>
                           )}
                         </div>
+                      </TableCell>
+                      <TableCell>
+                        <ProjectDialog project={project} isEdit />
                       </TableCell>
                     </TableRow>
                   );
