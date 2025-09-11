@@ -26,6 +26,7 @@ import {
 import { format } from "date-fns";
 import { ru } from "date-fns/locale";
 import { useToast } from "@/hooks/use-toast";
+import { DeleteClientDialog } from "./DeleteClientDialog";
 
 export function SecureClientsManagement() {
   const { 
@@ -485,13 +486,18 @@ export function SecureClientsManagement() {
               </div>
             </div>
             
-            <div className="flex gap-2 justify-end">
-              <Button variant="outline" onClick={() => setIsEditDialogOpen(false)}>
-                Отмена
-              </Button>
-              <Button onClick={handleEdit} disabled={isUpdating || !formData.name}>
-                {isUpdating ? "Сохранение..." : "Сохранить"}
-              </Button>
+            <div className="flex justify-between">
+              {selectedClient && (
+                <DeleteClientDialog client={selectedClient} />
+              )}
+              <div className="flex gap-2 ml-auto">
+                <Button variant="outline" onClick={() => setIsEditDialogOpen(false)}>
+                  Отмена
+                </Button>
+                <Button onClick={handleEdit} disabled={isUpdating || !formData.name}>
+                  {isUpdating ? "Сохранение..." : "Сохранить"}
+                </Button>
+              </div>
             </div>
           </DialogContent>
         </Dialog>

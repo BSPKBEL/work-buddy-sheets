@@ -10,6 +10,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useQueryClient } from "@tanstack/react-query";
 import { Plus, Edit } from "lucide-react";
 import { Project } from "@/hooks/useWorkers";
+import { DeleteProjectDialog } from "./DeleteProjectDialog";
 
 interface ProjectDialogProps {
   project?: Project;
@@ -187,18 +188,23 @@ export function ProjectDialog({ project, isEdit = false }: ProjectDialogProps) {
               />
             </div>
           </div>
-          <div className="flex justify-end space-x-2 pt-4">
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => setOpen(false)}
-              disabled={loading}
-            >
-              Отмена
-            </Button>
-            <Button type="submit" disabled={loading}>
-              {loading ? (isEdit ? "Сохранение..." : "Создание...") : (isEdit ? "Сохранить" : "Создать")}
-            </Button>
+          <div className="flex justify-between pt-4">
+            {isEdit && project && (
+              <DeleteProjectDialog project={project} />
+            )}
+            <div className="flex space-x-2 ml-auto">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setOpen(false)}
+                disabled={loading}
+              >
+                Отмена
+              </Button>
+              <Button type="submit" disabled={loading}>
+                {loading ? (isEdit ? "Сохранение..." : "Создание...") : (isEdit ? "Сохранить" : "Создать")}
+              </Button>
+            </div>
           </div>
         </form>
       </DialogContent>

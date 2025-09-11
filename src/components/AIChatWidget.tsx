@@ -258,9 +258,40 @@ export function AIChatWidget() {
             </Button>
           </div>
           
-          <div className="text-xs text-muted-foreground mt-2 text-center">
-            Сложность: {aiContext.maxComplexity} • 
-            Доступно функций: {Object.keys(aiContext.allowedDataTypes).length}
+          <div className="flex justify-between items-center mt-2">
+            <div className="text-xs text-muted-foreground">
+              Сложность: {aiContext.maxComplexity} • 
+              Доступно функций: {Object.keys(aiContext.allowedDataTypes).length}
+            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={async () => {
+                try {
+                  const { data, error } = await supabase.functions.invoke('ai-chat', {
+                    body: {
+                      prompt: 'Привет! Проверь работу ИИ',
+                      systemPrompt: getSystemPrompt('test'),
+                      context: { test: true }
+                    }
+                  });
+                  if (error) throw error;
+                  toast({
+                    title: "Тест ИИ",
+                    description: "ИИ работает нормально!",
+                  });
+                } catch (error) {
+                  toast({
+                    title: "Ошибка ИИ",
+                    description: "ИИ не настроен или недоступен",
+                    variant: "destructive",
+                  });
+                }
+              }}
+              className="text-xs h-6"
+            >
+              ТЕСТ
+            </Button>
           </div>
         </CardContent>
       </Card>

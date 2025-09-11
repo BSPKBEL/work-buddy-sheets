@@ -167,9 +167,18 @@ function ClientDialog() {
             />
           </div>
 
-          <Button type="submit" className="w-full" disabled={createClient.isPending}>
-            {createClient.isPending ? "Создание..." : "Создать клиента"}
-          </Button>
+          <div className="flex justify-end space-x-2 pt-4">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setOpen(false)}
+            >
+              Отмена
+            </Button>
+            <Button type="submit" disabled={createClient.isPending}>
+              {createClient.isPending ? "Создание..." : "Создать клиента"}
+            </Button>
+          </div>
         </form>
       </DialogContent>
     </Dialog>
