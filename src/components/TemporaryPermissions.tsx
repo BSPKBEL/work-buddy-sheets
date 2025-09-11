@@ -127,7 +127,7 @@ export function TemporaryPermissions() {
         .from('temporary_permissions')
         .insert([{
           user_id: newPermission.user_email, // В реальном приложении здесь был бы UUID
-          project_id: newPermission.project_id || null,
+          project_id: newPermission.project_id === "all_projects" ? null : newPermission.project_id || null,
           permission_type: newPermission.permission_type,
           expires_at: expiresAt.toISOString(),
           notes: newPermission.notes || null,
@@ -254,7 +254,7 @@ export function TemporaryPermissions() {
                     <SelectValue placeholder="Выберите проект (или оставьте пустым для всех)" />
                   </SelectTrigger>
                   <SelectContent className="dropdown-content">
-                    <SelectItem value="">Все проекты</SelectItem>
+                    <SelectItem value="all_projects">Все проекты</SelectItem>
                     {projects.map((project) => (
                       <SelectItem key={project.id} value={project.id}>
                         {project.name}

@@ -35,7 +35,7 @@ export function AssignWorkersDialog() {
         .insert({
           worker_id: formData.worker_id,
           project_id: formData.project_id,
-          foreman_id: formData.foreman_id || null,
+          foreman_id: formData.foreman_id === "no_foreman" ? null : formData.foreman_id || null,
           role: formData.role,
           start_date: formData.start_date,
           end_date: formData.end_date || null
@@ -143,7 +143,7 @@ export function AssignWorkersDialog() {
                   <SelectValue placeholder="Выберите бригадира" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">Без бригадира</SelectItem>
+                  <SelectItem value="no_foreman">Без бригадира</SelectItem>
                   {foremanWorkers.map((worker) => (
                     <SelectItem key={worker.id} value={worker.id}>
                       {worker.full_name}
