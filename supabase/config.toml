@@ -14,3 +14,9 @@ verify_jwt = true
 
 [functions.export-reports]
 verify_jwt = true
+
+[functions.ai-provider-test]
+verify_jwt = true
+
+[functions.ai-monitoring]
+verify_jwt = false

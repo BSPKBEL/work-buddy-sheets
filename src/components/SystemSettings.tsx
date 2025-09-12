@@ -16,6 +16,8 @@ import { Separator } from "@/components/ui/separator";
 import { Plus, Settings, Shield, Bot, Users, Clock, AlertTriangle, Check, X, Edit } from "lucide-react";
 import { format } from "date-fns";
 import { ru } from "date-fns/locale";
+import AIProviderCard from "./AIProviderCard";
+import AIStatusIndicator from "./AIStatusIndicator";
 
 interface AIProvider {
   id: string;
@@ -74,6 +76,7 @@ export default function SystemSettings() {
   const [auditLogs, setAuditLogs] = useState<UserAuditLog[]>([]);
   const [newProviderDialog, setNewProviderDialog] = useState(false);
   const [newRoleDialog, setNewRoleDialog] = useState(false);
+  const [providerStatuses, setProviderStatuses] = useState<Record<string, 'online' | 'offline' | 'error' | 'testing'>>({});
 
   // Form states
   const [newProvider, setNewProvider] = useState({
@@ -304,6 +307,13 @@ export default function SystemSettings() {
     }
   };
 
+  const handleProviderStatusChange = (providerId: string, status: 'online' | 'offline' | 'error' | 'testing') => {
+    setProviderStatuses(prev => ({
+      ...prev,
+      [providerId]: status
+    }));
+  };
+
   const getRoleBadgeVariant = (role: string) => {
     switch (role) {
       case 'admin': return 'destructive';
@@ -333,6 +343,7 @@ export default function SystemSettings() {
             Управление AI провайдерами, ролями пользователей и аудитом
           </p>
         </div>
+        <AIStatusIndicator variant="compact" />
       </div>
 
       <Tabs defaultValue="ai-providers" className="space-y-6">
@@ -356,9 +367,14 @@ export default function SystemSettings() {
         </TabsList>
 
         {/* AI Providers */}
-        <TabsContent value="ai-providers" className="space-y-4">
+        <TabsContent value="ai-providers" className="space-y-6">
           <div className="flex justify-between items-center">
-            <h3 className="text-lg font-semibold">AI Провайдеры</h3>
+            <div className="space-y-1">
+              <h3 className="text-lg font-semibold">AI Провайдеры</h3>
+              <p className="text-sm text-muted-foreground">
+                Управляйте провайдерами искусственного интеллекта, тестируйте соединения и настраивайте API ключи
+              </p>
+            </div>
             <Dialog open={newProviderDialog} onOpenChange={setNewProviderDialog}>
               <DialogTrigger asChild>
                 <Button className="gap-2">
@@ -453,47 +469,34 @@ export default function SystemSettings() {
             </Dialog>
           </div>
 
-          <Card>
-            <CardContent className="p-0">
-              <div className="table-wrapper">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Название</TableHead>
-                      <TableHead className="hidden md:table-cell">Тип</TableHead>
-                      <TableHead className="hidden sm:table-cell">Модель</TableHead>
-                      <TableHead className="hidden md:table-cell">Приоритет</TableHead>
-                      <TableHead>Статус</TableHead>
-                      <TableHead>Действия</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {aiProviders.map((provider) => (
-                      <TableRow key={provider.id}>
-                        <TableCell className="font-medium">{provider.name}</TableCell>
-                        <TableCell className="hidden md:table-cell">
-                          <Badge variant="outline">{provider.provider_type}</Badge>
-                        </TableCell>
-                        <TableCell className="hidden sm:table-cell">{provider.model_name}</TableCell>
-                        <TableCell className="hidden md:table-cell">{provider.priority}</TableCell>
-                        <TableCell>
-                          <Badge variant={provider.is_active ? "default" : "secondary"}>
-                            {provider.is_active ? "Активен" : "Неактивен"}
-                          </Badge>
-                        </TableCell>
-                        <TableCell>
-                          <Switch
-                            checked={provider.is_active}
-                            onCheckedChange={(checked) => toggleAIProvider(provider.id, checked)}
-                          />
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </div>
-            </CardContent>
-          </Card>
+          <AIStatusIndicator variant="detailed" className="mb-6" />
+
+          <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+            {aiProviders.map((provider) => (
+              <AIProviderCard
+                key={provider.id}
+                provider={provider}
+                onUpdate={fetchAIProviders}
+                onStatusChange={handleProviderStatusChange}
+              />
+            ))}
+          </div>
+
+          {aiProviders.length === 0 && (
+            <Card>
+              <CardContent className="flex flex-col items-center justify-center py-12 text-center">
+                <Bot className="h-12 w-12 text-muted-foreground mb-4" />
+                <h3 className="text-lg font-semibold mb-2">Нет AI провайдеров</h3>
+                <p className="text-muted-foreground mb-4">
+                  Добавьте первого провайдера для начала работы с AI
+                </p>
+                <Button onClick={() => setNewProviderDialog(true)} className="gap-2">
+                  <Plus className="h-4 w-4" />
+                  Добавить провайдера
+                </Button>
+              </CardContent>
+            </Card>
+          )}
         </TabsContent>
 
         {/* User Roles */}
