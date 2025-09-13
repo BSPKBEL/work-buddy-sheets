@@ -17,8 +17,7 @@ interface AIStatus {
   id: string;
   name: string;
   status: 'online' | 'offline' | 'error' | 'testing';
-  lastTest?: string;
-  responseTime?: number;
+  testResult?: string;
   errorMessage?: string;
 }
 
@@ -32,77 +31,83 @@ export default function AIStatusIndicator({ variant = 'compact', className = '' 
   const [loading, setLoading] = useState(true);
   const [overallStatus, setOverallStatus] = useState<'online' | 'partial' | 'offline'>('offline');
 
+  // Fetch AI providers on mount and set up realtime updates
   useEffect(() => {
     fetchAIProviders();
-    // Set up real-time monitoring
-    const interval = setInterval(checkAIHealth, 30000); // Check every 30 seconds
-    return () => clearInterval(interval);
+    
+    // Subscribe to realtime changes
+    const channel = supabase
+      .channel('ai_providers_status')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'ai_providers'
+        },
+        () => {
+          fetchAIProviders();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, []);
 
+  // Recalculate overall status when aiStatuses changes
   useEffect(() => {
-    calculateOverallStatus();
+    setOverallStatus(calculateOverallStatus(aiStatuses));
   }, [aiStatuses]);
 
   const fetchAIProviders = async () => {
     try {
-      const { data, error } = await supabase
+      const { data: providers, error } = await supabase
         .from('ai_providers')
         .select('*')
         .eq('is_active', true)
         .order('priority');
 
-      if (error) throw error;
+      if (error) {
+        console.error('Error fetching AI providers:', error);
+        return;
+      }
 
-      const statuses: AIStatus[] = (data || []).map(provider => ({
-        id: provider.id,
-        name: provider.name,
-        status: 'offline' // Default status
-      }));
-
-      setAiStatuses(statuses);
-      setLoading(false);
+      if (providers) {
+        const statuses: AIStatus[] = providers.map(provider => ({
+          id: provider.id,
+          name: provider.name,
+          status: (provider.last_status as 'online' | 'offline' | 'error' | 'testing') || 'offline',
+          testResult: provider.last_status === 'online' ? 
+            `Последний тест: ${provider.last_tested_at ? new Date(provider.last_tested_at).toLocaleString('ru-RU') : 'н/д'}${provider.last_response_time_ms ? ` (${provider.last_response_time_ms}ms)` : ''}` : 
+            null,
+          errorMessage: provider.last_error || null
+        }));
+        
+        setAiStatuses(statuses);
+      }
     } catch (error) {
-      console.error('Error fetching AI providers:', error);
+      console.error('Error in fetchAIProviders:', error);
+    } finally {
       setLoading(false);
     }
   };
 
-  const checkAIHealth = async () => {
-    // This would typically ping each AI provider to check health
-    // For now, we'll simulate status checks
-    const updatedStatuses = aiStatuses.map(status => ({
-      ...status,
-      status: Math.random() > 0.1 ? 'online' as const : 'error' as const,
-      lastTest: new Date().toISOString(),
-      responseTime: Math.floor(Math.random() * 1000) + 100
-    }));
-
-    setAiStatuses(updatedStatuses);
-  };
-
-  const calculateOverallStatus = () => {
-    if (aiStatuses.length === 0) {
-      setOverallStatus('offline');
-      return;
+  const calculateOverallStatus = (statuses: AIStatus[]) => {
+    if (statuses.length === 0) {
+      return 'offline';
     }
 
-    const onlineCount = aiStatuses.filter(s => s.status === 'online').length;
+    const onlineCount = statuses.filter(s => s.status === 'online').length;
     
-    if (onlineCount === aiStatuses.length) {
-      setOverallStatus('online');
+    if (onlineCount === statuses.length) {
+      return 'online';
     } else if (onlineCount > 0) {
-      setOverallStatus('partial');
+      return 'partial';
     } else {
-      setOverallStatus('offline');
+      return 'offline';
     }
-  };
-
-  const updateProviderStatus = (providerId: string, newStatus: 'online' | 'offline' | 'error' | 'testing') => {
-    setAiStatuses(prev => prev.map(status => 
-      status.id === providerId 
-        ? { ...status, status: newStatus, lastTest: new Date().toISOString() }
-        : status
-    ));
   };
 
   const getStatusIcon = (status: string) => {
@@ -169,9 +174,14 @@ export default function AIStatusIndicator({ variant = 'compact', className = '' 
                 <div key={status.id} className="flex items-center gap-2 text-sm">
                   {getStatusIcon(status.status)}
                   <span>{status.name}</span>
-                  {status.responseTime && (
+                  {status.testResult && (
                     <span className="text-xs text-muted-foreground">
-                      ({status.responseTime}ms)
+                      {status.testResult}
+                    </span>
+                  )}
+                  {status.errorMessage && (
+                    <span className="text-xs text-red-500">
+                      {status.errorMessage}
                     </span>
                   )}
                 </div>
@@ -206,12 +216,12 @@ export default function AIStatusIndicator({ variant = 'compact', className = '' 
                   {getStatusIcon(status.status)}
                   <span className="text-sm font-medium">{status.name}</span>
                 </div>
-                <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                  {status.responseTime && (
-                    <span>{status.responseTime}ms</span>
+                <div className="flex flex-col items-end gap-1 text-xs text-muted-foreground">
+                  {status.testResult && (
+                    <span>{status.testResult}</span>
                   )}
-                  {status.lastTest && (
-                    <span>{new Date(status.lastTest).toLocaleTimeString()}</span>
+                  {status.errorMessage && (
+                    <span className="text-red-500">{status.errorMessage}</span>
                   )}
                 </div>
               </div>

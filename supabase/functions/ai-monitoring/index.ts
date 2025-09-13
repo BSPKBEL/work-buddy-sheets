@@ -48,6 +48,18 @@ serve(async (req) => {
           last_check: new Date().toISOString()
         });
 
+        // Update provider status in database
+        await supabaseClient
+          .from('ai_providers')
+          .update({
+            last_status: testResult.success ? 'online' : 'error',
+            last_tested_at: new Date().toISOString(),
+            last_response_time_ms: testResult.responseTime,
+            last_error: testResult.success ? null : testResult.error,
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', provider.id);
+
         // Log monitoring result
         await supabaseClient.from('user_audit_log').insert({
           action: 'AI_PROVIDER_MONITOR',
@@ -75,6 +87,17 @@ serve(async (req) => {
           error_message: error.message,
           last_check: new Date().toISOString()
         });
+
+        // Update provider status on error
+        await supabaseClient
+          .from('ai_providers')
+          .update({
+            last_status: 'error',
+            last_tested_at: new Date().toISOString(),
+            last_error: error.message,
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', provider.id);
 
         await createFailureNotification(supabaseClient, provider, error.message);
       }

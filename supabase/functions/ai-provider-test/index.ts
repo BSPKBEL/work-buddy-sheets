@@ -114,11 +114,15 @@ serve(async (req) => {
       }
     });
 
-    // Update provider status in database
+    // Update provider status and metrics in database
     await supabaseClient
       .from('ai_providers')
       .update({ 
         updated_at: new Date().toISOString(),
+        last_status: testResult.success ? 'online' : 'error',
+        last_tested_at: new Date().toISOString(),
+        last_response_time_ms: responseTime,
+        last_error: testResult.success ? null : testResult.error
       })
       .eq('id', provider_id);
 

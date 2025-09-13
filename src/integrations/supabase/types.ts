@@ -21,6 +21,10 @@ export type Database = {
           created_by: string
           id: string
           is_active: boolean
+          last_error: string | null
+          last_response_time_ms: number | null
+          last_status: string | null
+          last_tested_at: string | null
           max_tokens: number | null
           model_name: string | null
           name: string
@@ -35,6 +39,10 @@ export type Database = {
           created_by: string
           id?: string
           is_active?: boolean
+          last_error?: string | null
+          last_response_time_ms?: number | null
+          last_status?: string | null
+          last_tested_at?: string | null
           max_tokens?: number | null
           model_name?: string | null
           name: string
@@ -49,6 +57,10 @@ export type Database = {
           created_by?: string
           id?: string
           is_active?: boolean
+          last_error?: string | null
+          last_response_time_ms?: number | null
+          last_status?: string | null
+          last_tested_at?: string | null
           max_tokens?: number | null
           model_name?: string | null
           name?: string
