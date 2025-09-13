@@ -135,14 +135,15 @@ export default function Dashboard() {
   const monthlyPayments = payments?.filter(p => p.payment_date.startsWith(thisMonth)) || [];
   const monthlyPaid = monthlyPayments.reduce((sum, p) => sum + p.amount, 0);
 
-  // Calculate total debt
-  const totalDebt = workers?.reduce((sum, worker) => {
+  // Calculate total debt (never negative)
+  const totalDebtRaw = workers?.reduce((sum, worker) => {
     const workerAttendance = attendance?.filter(a => a.worker_id === worker.id && a.status === 'present') || [];
     const workerPayments = payments?.filter(p => p.worker_id === worker.id) || [];
     const earned = workerAttendance.length * worker.daily_rate;
     const paid = workerPayments.reduce((pSum, p) => pSum + p.amount, 0);
-    return sum + (earned - paid);
+    return sum + Math.max(0, earned - paid);
   }, 0) || 0;
+  const totalDebt = Math.max(0, totalDebtRaw);
 
   const renderContent = () => {
     switch (activeSection) {
@@ -261,7 +262,7 @@ export default function Dashboard() {
                       const totalEarned = workerAttendance.length * worker.daily_rate;
                       const totalPaid = workerPayments.reduce((sum, p) => sum + p.amount, 0);
                       const balance = totalEarned - totalPaid;
-                      
+                      const due = Math.max(0, balance);
                       const todayAttendance = attendance?.find(a => 
                         a.worker_id === worker.id && 
                         format(new Date(a.date), 'yyyy-MM-dd') === format(new Date(), 'yyyy-MM-dd')
@@ -273,8 +274,8 @@ export default function Dashboard() {
                           <TableCell className="hidden md:table-cell mobile-text">{worker.daily_rate.toLocaleString()} ₽</TableCell>
                           <TableCell className="hidden sm:table-cell mobile-text">{workerAttendance.length}</TableCell>
                           <TableCell className="mobile-text">
-                            <span className={balance > 0 ? 'text-warning' : balance < 0 ? 'text-destructive' : 'text-muted-foreground'}>
-                              {balance.toLocaleString()} ₽
+                            <span className={due > 0 ? 'text-warning' : 'text-muted-foreground'}>
+                              {due.toLocaleString()} ₽
                             </span>
                           </TableCell>
                           <TableCell className="hidden md:table-cell">

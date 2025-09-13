@@ -205,7 +205,8 @@ async function testAnthropic(apiKey: string, endpoint?: string, model?: string) 
 }
 
 async function testDeepSeek(apiKey: string, endpoint?: string, model?: string) {
-  const url = endpoint || 'https://api.deepseek.com/chat/completions';
+  // DeepSeek is OpenAI-compatible and requires the /v1 prefix
+  const url = endpoint || 'https://api.deepseek.com/v1/chat/completions';
   const testModel = model || 'deepseek-chat';
 
   const response = await fetch(url, {
