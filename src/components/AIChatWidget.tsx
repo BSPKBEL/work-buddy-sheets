@@ -4,11 +4,12 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Badge } from '@/components/ui/badge';
-import { MessageCircle, Send, X, Bot, User, AlertTriangle } from 'lucide-react';
+import { MessageCircle, Send, X, Bot, User, AlertTriangle, RotateCcw, Eye, EyeOff } from 'lucide-react';
 import { useAIContext } from '@/hooks/useAIContext';
 import { AIPermissionGuard } from './AIPermissionGuard';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/components/ui/use-toast';
+import { useSecureAuth } from '@/hooks/useSecureAuth';
 
 interface Message {
   id: string;
@@ -17,6 +18,7 @@ interface Message {
   timestamp: Date;
   filtered?: boolean;
   filterReason?: string;
+  truncated?: boolean;
 }
 
 export function AIChatWidget() {
@@ -24,9 +26,11 @@ export function AIChatWidget() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [expandedMessages, setExpandedMessages] = useState<Set<string>>(new Set());
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const { aiContext, getSystemPrompt, filterPrompt, canAccessAIFeature } = useAIContext();
   const { toast } = useToast();
+  const currentUser = useSecureAuth();
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -41,7 +45,7 @@ export function AIChatWidget() {
 
     const userMessage: Message = {
       id: Date.now().toString(),
-      content: input,
+      content: input.trim(),
       sender: 'user',
       timestamp: new Date()
     };
@@ -51,68 +55,82 @@ export function AIChatWidget() {
     setIsLoading(true);
 
     try {
-      // Filter and validate the prompt
-      const { allowed, filteredPrompt, reason } = filterPrompt(input);
-      
-      if (!allowed) {
-        const errorMessage: Message = {
-          id: (Date.now() + 1).toString(),
-          content: reason || 'Запрос был отклонен системой безопасности',
-          sender: 'ai',
-          timestamp: new Date(),
-          filtered: true,
-          filterReason: reason
-        };
-        
-        setMessages(prev => [...prev, errorMessage]);
-        setIsLoading(false);
-        return;
-      }
-
-      // Call AI chat edge function
       const { data, error } = await supabase.functions.invoke('ai-chat', {
         body: {
-          prompt: filteredPrompt,
-          systemPrompt: getSystemPrompt('general_chat'),
+          prompt: userMessage.content,
+          systemPrompt: `Ты - AI ассистент для системы управления строительными проектами.
+          
+          Отвечай ТОЛЬКО на русском языке.
+          Будь кратким и конкретным.
+          НЕ показывай свои рассуждения.
+          
+          У тебя есть доступ к данным:
+          - Проекты: список, статус, бюджет, команда
+          - Работники: ФИО, должности, навыки, статус
+          - Финансы: зарплаты, расходы, отчеты
+          - Аналитика: производительность, метрики
+          
+          Отвечай только фактами из данных проекта.`,
           context: {
-            role: aiContext.maxComplexity,
-            allowedDataTypes: aiContext.allowedDataTypes,
-            canAccessFinancials: aiContext.canAccessFinancials
+            role: currentUser?.primaryRole || 'guest',
+            allowedDataTypes: ['projects', 'workers', 'finances', 'analytics'],
+            canAccessFinancials: currentUser?.isAdmin || currentUser?.isForeman,
           }
         }
       });
 
       if (error) throw error;
 
+      const response = data?.response || 'Не удалось получить ответ от AI.';
       const aiMessage: Message = {
         id: (Date.now() + 2).toString(),
-        content: data.response || 'Извините, не удалось получить ответ от AI.',
+        content: response,
         sender: 'ai',
-        timestamp: new Date()
+        timestamp: new Date(),
+        truncated: response.length > 300
       };
 
       setMessages(prev => [...prev, aiMessage]);
 
-    } catch (error) {
+    } catch (error: any) {
       console.error('AI Chat error:', error);
       
       const errorMessage: Message = {
         id: (Date.now() + 3).toString(),
-        content: 'Произошла ошибка при обращении к AI. Попробуйте позже.',
+        content: `Ошибка: ${error.message || 'Не удалось отправить сообщение'}`,
         sender: 'ai',
-        timestamp: new Date()
+        timestamp: new Date(),
+        filtered: true,
+        filterReason: 'Системная ошибка'
       };
       
       setMessages(prev => [...prev, errorMessage]);
       
       toast({
         title: "Ошибка AI чата",
-        description: "Не удалось получить ответ от AI помощника",
+        description: error.message || "Не удалось получить ответ от AI помощника",
         variant: "destructive",
       });
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const newDialog = () => {
+    setMessages([]);
+    setExpandedMessages(new Set());
+  };
+
+  const toggleMessageExpansion = (messageId: string) => {
+    setExpandedMessages(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(messageId)) {
+        newSet.delete(messageId);
+      } else {
+        newSet.add(messageId);
+      }
+      return newSet;
+    });
   };
 
   const handleKeyPress = (e: React.KeyboardEvent) => {
@@ -146,9 +164,18 @@ export function AIChatWidget() {
           </div>
           <div className="flex items-center space-x-2">
             <Badge variant="outline" className="text-xs">
-              {aiContext.maxComplexity === 'advanced' ? 'Админ' : 
-               aiContext.maxComplexity === 'intermediate' ? 'Прораб' : 'Рабочий'}
+              {currentUser?.isAdmin ? 'Админ' : 
+               currentUser?.isForeman ? 'Прораб' : 'Рабочий'}
             </Badge>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={newDialog}
+              className="h-6 px-2 text-xs"
+            >
+              <RotateCcw className="h-3 w-3 mr-1" />
+              Новый
+            </Button>
             <Button
               variant="ghost"
               size="icon"
@@ -166,9 +193,9 @@ export function AIChatWidget() {
               {messages.length === 0 && (
                 <div className="text-center text-muted-foreground text-sm py-8">
                   <Bot className="h-8 w-8 mx-auto mb-2 opacity-50" />
-                  <p>Привет! Я AI помощник.</p>
+                  <p>Привет! Я AI помощник по строительным проектам.</p>
                   <p className="text-xs mt-1">
-                    Доступ к данным: {aiContext.allowedDataTypes.join(', ')}
+                    Попробуйте: "дай список работников" или "отчет по проекту [название]"
                   </p>
                 </div>
               )}
@@ -209,8 +236,32 @@ export function AIChatWidget() {
                       </div>
                       
                       <div className="text-sm whitespace-pre-wrap">
-                        {message.content}
+                        {message.truncated && !expandedMessages.has(message.id) 
+                          ? `${message.content.substring(0, 300)}...`
+                          : message.content
+                        }
                       </div>
+                      
+                      {message.truncated && (
+                        <Button
+                          variant="link"
+                          size="sm"
+                          onClick={() => toggleMessageExpansion(message.id)}
+                          className="h-auto p-0 text-xs mt-1 hover:no-underline"
+                        >
+                          {expandedMessages.has(message.id) ? (
+                            <>
+                              <EyeOff className="h-3 w-3 mr-1" />
+                              Свернуть
+                            </>
+                          ) : (
+                            <>
+                              <Eye className="h-3 w-3 mr-1" />
+                              Показать полностью
+                            </>
+                          )}
+                        </Button>
+                      )}
                       
                       {message.filtered && message.filterReason && (
                         <div className="text-xs mt-1 opacity-75">
