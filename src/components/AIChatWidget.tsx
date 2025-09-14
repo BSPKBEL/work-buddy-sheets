@@ -188,7 +188,7 @@ export function AIChatWidget() {
         </CardHeader>
         
         <CardContent className="flex-1 flex flex-col p-4">
-          <ScrollArea className="flex-1 pr-4">
+          <ScrollArea className="flex-1 pr-4 overflow-y-auto">
             <div className="space-y-4">
               {messages.length === 0 && (
                 <div className="text-center text-muted-foreground text-sm py-8">
@@ -235,7 +235,7 @@ export function AIChatWidget() {
                         </span>
                       </div>
                       
-                      <div className="text-sm whitespace-pre-wrap">
+                      <div className="text-sm whitespace-pre-wrap break-words">
                         {message.truncated && !expandedMessages.has(message.id) 
                           ? `${message.content.substring(0, 300)}...`
                           : message.content
