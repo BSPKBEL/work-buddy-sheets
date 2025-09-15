@@ -206,12 +206,12 @@ export function AIChatWidget() {
                   className={`flex ${message.sender === 'user' ? 'justify-end' : 'justify-start'}`}
                 >
                   <div
-                    className={`flex items-start space-x-2 max-w-[80%] ${
+                    className={`flex items-start space-x-2 max-w-[85%] min-w-0 ${
                       message.sender === 'user' ? 'flex-row-reverse space-x-reverse' : ''
                     }`}
                   >
                     <div
-                      className={`p-2 rounded-lg ${
+                      className={`p-2 rounded-lg min-w-0 flex-1 ${
                         message.sender === 'user'
                           ? 'bg-primary text-primary-foreground'
                           : message.filtered
@@ -235,7 +235,7 @@ export function AIChatWidget() {
                         </span>
                       </div>
                       
-                      <div className="text-sm whitespace-pre-wrap break-words">
+                      <div className="text-sm whitespace-pre-wrap break-words overflow-wrap-anywhere word-break-break-word">
                         {message.truncated && !expandedMessages.has(message.id) 
                           ? `${message.content.substring(0, 300)}...`
                           : message.content
