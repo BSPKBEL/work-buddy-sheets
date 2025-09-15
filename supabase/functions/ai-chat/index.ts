@@ -72,46 +72,93 @@ serve(async (req) => {
       );
     }
 
-    // Check if this is a data request and fetch real data
+    // Check if this is a data request and fetch real data (точные данные из БД)
     let realData = '';
     const lowerPrompt = prompt.toLowerCase();
-    
-    if (lowerPrompt.includes('сколько') && (lowerPrompt.includes('работник') || lowerPrompt.includes('человек') || lowerPrompt.includes('зарегистрир'))) {
-      const { data: workers, error } = await supabaseAdmin
-        .from('workers')
-        .select('id')
-        .eq('status', 'active');
-      
-      if (!error && workers) {
-        realData += `\n\nФАКТИЧЕСКИЕ ДАННЫЕ: В системе зарегистрировано ${workers.length} активных работников.`;
+
+    // Утилита для подсчета с head: true
+    const getCount = async (table: string, filters?: (q: any) => any) => {
+      let q: any = supabaseAdmin.from(table).select('id', { count: 'exact', head: true });
+      if (filters) q = filters(q);
+      const { count, error } = await q;
+      if (error) {
+        console.error(`Count error on ${table}:`, error.message);
+        return null;
+      }
+      return count ?? 0;
+    };
+
+    // Сколько работников (всего/активных/зарегистрированных)
+    if (lowerPrompt.includes('сколько') && (lowerPrompt.includes('работник') || lowerPrompt.includes('человек') || lowerPrompt.includes('сотрудник'))) {
+      const active = await getCount('workers', (q) => q.eq('status', 'active'));
+      const total = await getCount('workers');
+      if (active !== null && total !== null) {
+        realData += `\n\nФАКТИЧЕСКИЕ ДАННЫЕ: Всего работников: ${total}. Активных: ${active}.`;
       }
     }
-    
+
+    // "всего?" — сводка по системе
+    if (lowerPrompt.includes('всего')) {
+      const [projectsTotal, workersTotal, workersActive, paymentsCount, wExpCount, pExpCount] = await Promise.all([
+        getCount('projects'),
+        getCount('workers'),
+        getCount('workers', (q) => q.eq('status', 'active')),
+        getCount('payments'),
+        getCount('worker_expenses'),
+        getCount('project_expenses'),
+      ]);
+      if (
+        projectsTotal !== null && workersTotal !== null && workersActive !== null &&
+        paymentsCount !== null && wExpCount !== null && pExpCount !== null
+      ) {
+        const financialOps = (paymentsCount + wExpCount + pExpCount);
+        realData += `\n\nФАКТИЧЕСКИЕ ДАННЫЕ: Проектов: ${projectsTotal}. Работников: ${workersTotal} (активных: ${workersActive}). Финансовых операций: ${financialOps}.`;
+      }
+    }
+
+    // Кто активен — список активных работников
+    if ((lowerPrompt.includes('кто') || lowerPrompt.includes('список')) && lowerPrompt.includes('актив')) {
+      const { data: workers, error } = await supabaseAdmin
+        .from('workers')
+        .select('full_name, position, status')
+        .eq('status', 'active')
+        .order('full_name', { ascending: true })
+        .limit(20);
+      if (!error && workers) {
+        realData += `\n\nФАКТИЧЕСКИЕ ДАННЫЕ — Активные работники (до 20):\n`;
+        workers.forEach((w: any, i: number) => {
+          realData += `${i + 1}. ${w.full_name}${w.position ? ` — ${w.position}` : ''}\n`;
+        });
+      }
+    }
+
+    // Список работников (активных)
     if (lowerPrompt.includes('список') && lowerPrompt.includes('работник')) {
       const { data: workers, error } = await supabaseAdmin
         .from('workers')
         .select('full_name, position, status')
         .eq('status', 'active')
+        .order('full_name', { ascending: true })
         .limit(10);
-      
       if (!error && workers) {
-        realData += `\n\nФАКТИЧЕСКИЕ ДАННЫЕ - Список работников:\n`;
-        workers.forEach((worker, index) => {
-          realData += `${index + 1}. ${worker.full_name}${worker.position ? ` - ${worker.position}` : ''}\n`;
+        realData += `\n\nФАКТИЧЕСКИЕ ДАННЫЕ — Список работников: \n`;
+        workers.forEach((worker: any, index: number) => {
+          realData += `${index + 1}. ${worker.full_name}${worker.position ? ` — ${worker.position}` : ''}\n`;
         });
       }
     }
-    
+
+    // Список проектов
     if (lowerPrompt.includes('список') && lowerPrompt.includes('проект')) {
       const { data: projects, error } = await supabaseAdmin
         .from('projects')
         .select('name, status, budget')
+        .order('name', { ascending: true })
         .limit(10);
-      
       if (!error && projects) {
-        realData += `\n\nФАКТИЧЕСКИЕ ДАННЫЕ - Список проектов:\n`;
-        projects.forEach((project, index) => {
-          realData += `${index + 1}. ${project.name} - статус: ${project.status}${project.budget ? `, бюджет: ${project.budget} руб.` : ''}\n`;
+        realData += `\n\nФАКТИЧЕСКИЕ ДАННЫЕ — Список проектов: \n`;
+        projects.forEach((project: any, index: number) => {
+          realData += `${index + 1}. ${project.name} — статус: ${project.status}${project.budget ? `, бюджет: ${project.budget} руб.` : ''}\n`;
         });
       }
     }

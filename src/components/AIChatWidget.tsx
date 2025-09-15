@@ -156,7 +156,7 @@ export function AIChatWidget() {
 
   return (
     <AIPermissionGuard requiredFeature="chat">
-      <Card className="fixed bottom-6 right-6 w-96 h-[500px] shadow-xl border-2 flex flex-col z-50">
+      <Card className="fixed bottom-4 right-4 w-[92vw] sm:w-96 h-[60vh] sm:h-[500px] max-h-[80vh] shadow-xl border-2 flex flex-col z-50">
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 bg-primary/5">
           <div className="flex items-center space-x-2">
             <Bot className="h-5 w-5 text-primary" />
@@ -187,109 +187,111 @@ export function AIChatWidget() {
           </div>
         </CardHeader>
         
-        <CardContent className="flex-1 flex flex-col p-4">
-          <ScrollArea className="flex-1 pr-4 overflow-y-auto">
-            <div className="space-y-4">
-              {messages.length === 0 && (
-                <div className="text-center text-muted-foreground text-sm py-8">
-                  <Bot className="h-8 w-8 mx-auto mb-2 opacity-50" />
-                  <p>Привет! Я AI помощник по строительным проектам.</p>
-                  <p className="text-xs mt-1">
-                    Попробуйте: "дай список работников" или "отчет по проекту [название]"
-                  </p>
-                </div>
-              )}
-              
-              {messages.map((message) => (
-                <div
-                  key={message.id}
-                  className={`flex ${message.sender === 'user' ? 'justify-end' : 'justify-start'}`}
-                >
+        <CardContent className="flex-1 flex flex-col min-h-0 p-4">
+          <div className="flex-1 min-h-0">
+            <ScrollArea className="h-full pr-2">
+              <div className="space-y-4 pr-2">
+                {messages.length === 0 && (
+                  <div className="text-center text-muted-foreground text-sm py-8">
+                    <Bot className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                    <p>Привет! Я AI помощник по строительным проектам.</p>
+                    <p className="text-xs mt-1">
+                      Попробуйте: "дай список работников" или "отчет по проекту [название]"
+                    </p>
+                  </div>
+                )}
+                
+                {messages.map((message) => (
                   <div
-                    className={`flex items-start space-x-2 max-w-[85%] min-w-0 ${
-                      message.sender === 'user' ? 'flex-row-reverse space-x-reverse' : ''
-                    }`}
+                    key={message.id}
+                    className={`flex ${message.sender === 'user' ? 'justify-end' : 'justify-start'}`}
                   >
                     <div
-                      className={`p-2 rounded-lg min-w-0 flex-1 ${
-                        message.sender === 'user'
-                          ? 'bg-primary text-primary-foreground'
-                          : message.filtered
-                          ? 'bg-red-100 text-red-800 border border-red-200'
-                          : 'bg-muted'
+                      className={`flex items-start space-x-2 max-w-[85%] min-w-0 ${
+                        message.sender === 'user' ? 'flex-row-reverse space-x-reverse' : ''
                       }`}
                     >
-                      <div className="flex items-center space-x-1 mb-1">
-                        {message.sender === 'user' ? (
-                          <User className="h-3 w-3" />
-                        ) : message.filtered ? (
-                          <AlertTriangle className="h-3 w-3" />
-                        ) : (
-                          <Bot className="h-3 w-3" />
-                        )}
-                        <span className="text-xs opacity-70">
-                          {message.timestamp.toLocaleTimeString([], { 
-                            hour: '2-digit', 
-                            minute: '2-digit' 
-                          })}
-                        </span>
-                      </div>
-                      
-                      <div className="text-sm whitespace-pre-wrap break-words overflow-wrap-anywhere word-break-break-word">
-                        {message.truncated && !expandedMessages.has(message.id) 
-                          ? `${message.content.substring(0, 300)}...`
-                          : message.content
-                        }
-                      </div>
-                      
-                      {message.truncated && (
-                        <Button
-                          variant="link"
-                          size="sm"
-                          onClick={() => toggleMessageExpansion(message.id)}
-                          className="h-auto p-0 text-xs mt-1 hover:no-underline"
-                        >
-                          {expandedMessages.has(message.id) ? (
-                            <>
-                              <EyeOff className="h-3 w-3 mr-1" />
-                              Свернуть
-                            </>
+                      <div
+                        className={`p-2 rounded-lg min-w-0 flex-1 ${
+                          message.sender === 'user'
+                            ? 'bg-primary text-primary-foreground'
+                            : message.filtered
+                            ? 'bg-red-100 text-red-800 border border-red-200'
+                            : 'bg-muted'
+                        }`}
+                      >
+                        <div className="flex items-center space-x-1 mb-1">
+                          {message.sender === 'user' ? (
+                            <User className="h-3 w-3" />
+                          ) : message.filtered ? (
+                            <AlertTriangle className="h-3 w-3" />
                           ) : (
-                            <>
-                              <Eye className="h-3 w-3 mr-1" />
-                              Показать полностью
-                            </>
+                            <Bot className="h-3 w-3" />
                           )}
-                        </Button>
-                      )}
-                      
-                      {message.filtered && message.filterReason && (
-                        <div className="text-xs mt-1 opacity-75">
-                          Причина: {message.filterReason}
+                          <span className="text-xs opacity-70">
+                            {message.timestamp.toLocaleTimeString([], { 
+                              hour: '2-digit', 
+                              minute: '2-digit' 
+                            })}
+                          </span>
                         </div>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              ))}
-              
-              {isLoading && (
-                <div className="flex justify-start">
-                  <div className="bg-muted p-2 rounded-lg">
-                    <div className="flex items-center space-x-2">
-                      <Bot className="h-3 w-3" />
-                      <div className="flex space-x-1">
-                        <div className="w-1 h-1 bg-current rounded-full animate-bounce" />
-                        <div className="w-1 h-1 bg-current rounded-full animate-bounce delay-100" />
-                        <div className="w-1 h-1 bg-current rounded-full animate-bounce delay-200" />
+                        
+                        <div className="text-sm whitespace-pre-wrap break-words">
+                          {message.truncated && !expandedMessages.has(message.id) 
+                            ? `${message.content.substring(0, 300)}...`
+                            : message.content
+                          }
+                        </div>
+                        
+                        {message.truncated && (
+                          <Button
+                            variant="link"
+                            size="sm"
+                            onClick={() => toggleMessageExpansion(message.id)}
+                            className="h-auto p-0 text-xs mt-1 hover:no-underline"
+                          >
+                            {expandedMessages.has(message.id) ? (
+                              <>
+                                <EyeOff className="h-3 w-3 mr-1" />
+                                Свернуть
+                              </>
+                            ) : (
+                              <>
+                                <Eye className="h-3 w-3 mr-1" />
+                                Показать полностью
+                              </>
+                            )}
+                          </Button>
+                        )}
+                        
+                        {message.filtered && message.filterReason && (
+                          <div className="text-xs mt-1 opacity-75">
+                            Причина: {message.filterReason}
+                          </div>
+                        )}
                       </div>
                     </div>
                   </div>
-                </div>
-              )}
-            </div>
-            <div ref={messagesEndRef} />
-          </ScrollArea>
+                ))}
+                
+                {isLoading && (
+                  <div className="flex justify-start">
+                    <div className="bg-muted p-2 rounded-lg">
+                      <div className="flex items-center space-x-2">
+                        <Bot className="h-3 w-3" />
+                        <div className="flex space-x-1">
+                          <div className="w-1 h-1 bg-current rounded-full animate-bounce" />
+                          <div className="w-1 h-1 bg-current rounded-full animate-bounce delay-100" />
+                          <div className="w-1 h-1 bg-current rounded-full animate-bounce delay-200" />
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+              <div ref={messagesEndRef} />
+            </ScrollArea>
+          </div>
           
           <div className="flex space-x-2 mt-4">
             <Input
