@@ -944,6 +944,17 @@ export type Database = {
         Args: { _client_id: string }
         Returns: Json
       }
+      get_masked_worker_data: {
+        Args: { _worker_id: string }
+        Returns: {
+          daily_rate_masked: string
+          full_name: string
+          id: string
+          phone_masked: string
+          status: string
+          worker_position: string
+        }[]
+      }
       get_secure_client_data: {
         Args: { _client_id?: string }
         Returns: {
