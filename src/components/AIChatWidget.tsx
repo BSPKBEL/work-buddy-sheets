@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
-import { ScrollArea } from '@/components/ui/scroll-area';
+
 import { Badge } from '@/components/ui/badge';
 import { MessageCircle, Send, X, Bot, User, AlertTriangle, RotateCcw, Eye, EyeOff } from 'lucide-react';
 import { useAIContext } from '@/hooks/useAIContext';
@@ -133,7 +133,7 @@ export function AIChatWidget() {
     });
   };
 
-  const handleKeyPress = (e: React.KeyboardEvent) => {
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
       handleSendMessage();
@@ -188,116 +188,114 @@ export function AIChatWidget() {
         </CardHeader>
         
         <CardContent className="flex-1 flex flex-col min-h-0 p-4">
-          <div className="flex-1 min-h-0">
-            <ScrollArea className="h-full pr-2">
-              <div className="space-y-4 pr-2">
-                {messages.length === 0 && (
-                  <div className="text-center text-muted-foreground text-sm py-8">
-                    <Bot className="h-8 w-8 mx-auto mb-2 opacity-50" />
-                    <p>Привет! Я AI помощник по строительным проектам.</p>
-                    <p className="text-xs mt-1">
-                      Попробуйте: "дай список работников" или "отчет по проекту [название]"
-                    </p>
-                  </div>
-                )}
-                
-                {messages.map((message) => (
+          <div className="flex-1 min-h-0 overflow-y-auto pr-2" aria-live="polite" aria-relevant="additions">
+            <div className="space-y-4 pr-2">
+              {messages.length === 0 && (
+                <div className="text-center text-muted-foreground text-sm py-8">
+                  <Bot className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                  <p>Привет! Я AI помощник по строительным проектам.</p>
+                  <p className="text-xs mt-1">
+                    Попробуйте: "дай список работников" или "отчет по проекту [название]"
+                  </p>
+                </div>
+              )}
+              
+              {messages.map((message) => (
+                <div
+                  key={message.id}
+                  className={`flex ${message.sender === 'user' ? 'justify-end' : 'justify-start'}`}
+                >
                   <div
-                    key={message.id}
-                    className={`flex ${message.sender === 'user' ? 'justify-end' : 'justify-start'}`}
+                    className={`flex items-start space-x-2 max-w-[85%] min-w-0 ${
+                      message.sender === 'user' ? 'flex-row-reverse space-x-reverse' : ''
+                    }`}
                   >
                     <div
-                      className={`flex items-start space-x-2 max-w-[85%] min-w-0 ${
-                        message.sender === 'user' ? 'flex-row-reverse space-x-reverse' : ''
+                      className={`p-2 rounded-lg min-w-0 flex-1 ${
+                        message.sender === 'user'
+                          ? 'bg-primary text-primary-foreground'
+                          : message.filtered
+                          ? 'bg-red-100 text-red-800 border border-red-200'
+                          : 'bg-muted'
                       }`}
                     >
-                      <div
-                        className={`p-2 rounded-lg min-w-0 flex-1 ${
-                          message.sender === 'user'
-                            ? 'bg-primary text-primary-foreground'
-                            : message.filtered
-                            ? 'bg-red-100 text-red-800 border border-red-200'
-                            : 'bg-muted'
-                        }`}
-                      >
-                        <div className="flex items-center space-x-1 mb-1">
-                          {message.sender === 'user' ? (
-                            <User className="h-3 w-3" />
-                          ) : message.filtered ? (
-                            <AlertTriangle className="h-3 w-3" />
+                      <div className="flex items-center space-x-1 mb-1">
+                        {message.sender === 'user' ? (
+                          <User className="h-3 w-3" />
+                        ) : message.filtered ? (
+                          <AlertTriangle className="h-3 w-3" />
+                        ) : (
+                          <Bot className="h-3 w-3" />
+                        )}
+                        <span className="text-xs opacity-70">
+                          {message.timestamp.toLocaleTimeString([], { 
+                            hour: '2-digit', 
+                            minute: '2-digit' 
+                          })}
+                        </span>
+                      </div>
+                      
+                      <div className="text-sm whitespace-pre-wrap break-words overflow-x-hidden">
+                        {message.truncated && !expandedMessages.has(message.id) 
+                          ? `${message.content.substring(0, 300)}...`
+                          : message.content
+                        }
+                      </div>
+                      
+                      {message.truncated && (
+                        <Button
+                          variant="link"
+                          size="sm"
+                          onClick={() => toggleMessageExpansion(message.id)}
+                          className="h-auto p-0 text-xs mt-1 hover:no-underline"
+                        >
+                          {expandedMessages.has(message.id) ? (
+                            <>
+                              <EyeOff className="h-3 w-3 mr-1" />
+                              Свернуть
+                            </>
                           ) : (
-                            <Bot className="h-3 w-3" />
+                            <>
+                              <Eye className="h-3 w-3 mr-1" />
+                              Показать полностью
+                            </>
                           )}
-                          <span className="text-xs opacity-70">
-                            {message.timestamp.toLocaleTimeString([], { 
-                              hour: '2-digit', 
-                              minute: '2-digit' 
-                            })}
-                          </span>
+                        </Button>
+                      )}
+                      
+                      {message.filtered && message.filterReason && (
+                        <div className="text-xs mt-1 opacity-75">
+                          Причина: {message.filterReason}
                         </div>
-                        
-                        <div className="text-sm whitespace-pre-wrap break-words">
-                          {message.truncated && !expandedMessages.has(message.id) 
-                            ? `${message.content.substring(0, 300)}...`
-                            : message.content
-                          }
-                        </div>
-                        
-                        {message.truncated && (
-                          <Button
-                            variant="link"
-                            size="sm"
-                            onClick={() => toggleMessageExpansion(message.id)}
-                            className="h-auto p-0 text-xs mt-1 hover:no-underline"
-                          >
-                            {expandedMessages.has(message.id) ? (
-                              <>
-                                <EyeOff className="h-3 w-3 mr-1" />
-                                Свернуть
-                              </>
-                            ) : (
-                              <>
-                                <Eye className="h-3 w-3 mr-1" />
-                                Показать полностью
-                              </>
-                            )}
-                          </Button>
-                        )}
-                        
-                        {message.filtered && message.filterReason && (
-                          <div className="text-xs mt-1 opacity-75">
-                            Причина: {message.filterReason}
-                          </div>
-                        )}
+                      )}
+                    </div>
+                  </div>
+                </div>
+              ))}
+              
+              {isLoading && (
+                <div className="flex justify-start">
+                  <div className="bg-muted p-2 rounded-lg">
+                    <div className="flex items-center space-x-2">
+                      <Bot className="h-3 w-3" />
+                      <div className="flex space-x-1">
+                        <div className="w-1 h-1 bg-current rounded-full animate-bounce" />
+                        <div className="w-1 h-1 bg-current rounded-full animate-bounce delay-100" />
+                        <div className="w-1 h-1 bg-current rounded-full animate-bounce delay-200" />
                       </div>
                     </div>
                   </div>
-                ))}
-                
-                {isLoading && (
-                  <div className="flex justify-start">
-                    <div className="bg-muted p-2 rounded-lg">
-                      <div className="flex items-center space-x-2">
-                        <Bot className="h-3 w-3" />
-                        <div className="flex space-x-1">
-                          <div className="w-1 h-1 bg-current rounded-full animate-bounce" />
-                          <div className="w-1 h-1 bg-current rounded-full animate-bounce delay-100" />
-                          <div className="w-1 h-1 bg-current rounded-full animate-bounce delay-200" />
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                )}
-              </div>
-              <div ref={messagesEndRef} />
-            </ScrollArea>
+                </div>
+              )}
+            </div>
+            <div ref={messagesEndRef} />
           </div>
           
           <div className="flex space-x-2 mt-4">
             <Input
               value={input}
               onChange={(e) => setInput(e.target.value)}
-              onKeyPress={handleKeyPress}
+              onKeyDown={handleKeyDown}
               placeholder="Задайте вопрос AI помощнику..."
               disabled={isLoading}
               className="flex-1"

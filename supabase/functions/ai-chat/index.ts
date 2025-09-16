@@ -163,6 +163,70 @@ serve(async (req) => {
       }
     }
 
+    // Direct deterministic responses for common data queries to ensure accuracy
+    const sendResponse = (text: string) =>
+      new Response(JSON.stringify({
+        response: text,
+        context: {
+          role: context?.role,
+          provider: 'direct',
+          response_time: 0,
+          timestamp: new Date().toISOString()
+        }
+      }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+
+    // Registered users count
+    if (lowerPrompt.includes('сколько') && lowerPrompt.includes('зарегистр')) {
+      const { count, error: profilesErr } = await supabaseAdmin
+        .from('profiles')
+        .select('id', { count: 'exact', head: true });
+      if (profilesErr) {
+        console.error('Count profiles error:', profilesErr.message);
+      }
+      const total = count ?? 0;
+      return sendResponse(`В системе зарегистрировано пользователей: ${total}.`);
+    }
+
+    // Active workers list
+    if ((lowerPrompt.includes('кто') || lowerPrompt.includes('список')) && lowerPrompt.includes('актив')) {
+      const { data: workers, error } = await supabaseAdmin
+        .from('workers')
+        .select('full_name, position')
+        .eq('status', 'active')
+        .order('full_name', { ascending: true })
+        .limit(20);
+      if (!error && workers) {
+        const list = workers.map((w: any, i: number) => `${i + 1}. ${w.full_name}${w.position ? ` — ${w.position}` : ''}`).join('\n');
+        return sendResponse(`Активные работники (до 20):\n${list || 'Нет активных работников.'}`);
+      }
+    }
+
+    // "как их зовут" — list workers
+    if ((lowerPrompt.includes('как') && (lowerPrompt.includes('зовут') || lowerPrompt.includes('имена'))) || (lowerPrompt.includes('список') && lowerPrompt.includes('работник'))) {
+      const { data: workers, error } = await supabaseAdmin
+        .from('workers')
+        .select('full_name, position, status')
+        .order('full_name', { ascending: true })
+        .limit(20);
+      if (!error && workers) {
+        const list = workers.map((w: any, i: number) => `${i + 1}. ${w.full_name}${w.position ? ` — ${w.position}` : ''}${w.status ? ` (${w.status})` : ''}`).join('\n');
+        return sendResponse(`Список работников (до 20):\n${list || 'Работники не найдены.'}`);
+      }
+    }
+
+    // Projects list
+    if (((lowerPrompt.includes('какие') || lowerPrompt.includes('список')) && lowerPrompt.includes('проект')) || lowerPrompt.includes('проекты есть')) {
+      const { data: projects, error } = await supabaseAdmin
+        .from('projects')
+        .select('name, status, budget')
+        .order('name', { ascending: true })
+        .limit(10);
+      if (!error && projects) {
+        const list = projects.map((p: any, i: number) => `${i + 1}. ${p.name} — статус: ${p.status}${p.budget ? `, бюджет: ${p.budget} руб.` : ''}`).join('\n');
+        return sendResponse(`Список проектов:\n${list || 'Проекты не найдены.'}`);
+      }
+    }
+
     // Get active AI providers ordered by priority
     const { data: providers, error: providersError } = await supabaseAdmin
       .from('ai_providers')
