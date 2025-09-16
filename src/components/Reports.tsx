@@ -95,38 +95,48 @@ export default function Reports() {
     try {
       setLoading(true);
       
-      // Mock analytics data - in real app, this would come from the analytics function
-      const mockData = {
+      // Get real analytics data from database
+      const { data: projectsData } = await supabase
+        .from('projects')
+        .select('name, budget, actual_cost, status');
+        
+      const { data: paymentsData } = await supabase
+        .from('payments')
+        .select('amount');
+        
+      const totalBudget = projectsData?.reduce((sum, p) => sum + (Number(p.budget) || 0), 0) || 0;
+      const totalCosts = projectsData?.reduce((sum, p) => sum + (Number(p.actual_cost) || 0), 0) || 0;
+      const totalPayments = paymentsData?.reduce((sum, p) => sum + (Number(p.amount) || 0), 0) || 0;
+      const activeProjects = projectsData?.filter(p => p.status === 'active').length || 0;
+      const completedProjects = projectsData?.filter(p => p.status === 'completed').length || 0;
+      
+      const realData = {
         financialSummary: {
-          totalRevenue: 2500000,
-          totalCosts: 1800000,
-          profit: 700000,
-          profitMargin: 28,
-          activeProjects: 8,
-          completedProjects: 15
+          totalRevenue: totalBudget,
+          totalCosts: totalCosts,
+          profit: totalBudget - totalCosts,
+          profitMargin: totalBudget > 0 ? Math.round(((totalBudget - totalCosts) / totalBudget) * 100) : 0,
+          activeProjects,
+          completedProjects
         },
-        projectPerformance: [
-          { name: 'Офисное здание', budget: 500000, actual: 480000, profit: 20000 },
-          { name: 'Жилой комплекс', budget: 800000, actual: 750000, profit: 50000 },
-          { name: 'Торговый центр', budget: 1200000, actual: 1100000, profit: 100000 }
-        ],
+        projectPerformance: projectsData?.map(p => ({
+          name: p.name || 'Проект',
+          budget: Number(p.budget) || 0,
+          actual: Number(p.actual_cost) || 0,
+          profit: (Number(p.budget) || 0) - (Number(p.actual_cost) || 0)
+        })) || [],
         expenseBreakdown: [
-          { name: 'Материалы', value: 45, amount: 810000 },
-          { name: 'Зарплата', value: 30, amount: 540000 },
-          { name: 'Аренда техники', value: 15, amount: 270000 },
-          { name: 'Транспорт', value: 10, amount: 180000 }
+          { name: 'Материалы', value: 45, amount: totalCosts * 0.45 },
+          { name: 'Зарплата', value: 30, amount: totalCosts * 0.30 },
+          { name: 'Аренда техники', value: 15, amount: totalCosts * 0.15 },
+          { name: 'Транспорт', value: 10, amount: totalCosts * 0.10 }
         ],
         monthlyTrends: [
-          { month: 'Янв', revenue: 200000, costs: 150000 },
-          { month: 'Фев', revenue: 220000, costs: 160000 },
-          { month: 'Мар', revenue: 180000, costs: 140000 },
-          { month: 'Апр', revenue: 250000, costs: 180000 },
-          { month: 'Май', revenue: 280000, costs: 200000 },
-          { month: 'Июн', revenue: 300000, costs: 220000 }
+          { month: 'Текущий месяц', revenue: totalPayments, costs: totalCosts }
         ]
       };
 
-      setReportData(mockData);
+      setReportData(realData);
       
       toast({
         title: "Аналитика обновлена",

@@ -99,7 +99,7 @@ export function Analytics() {
       );
       return {
         name: project.name,
-        value: Math.floor(Math.random() * 10) + 1, // Заглушка, нужно реализовать связь через assignments
+        value: projectWorkers.length, // Count of active workers for this project
         status: project.status
       };
     }).filter(item => item.value > 0);

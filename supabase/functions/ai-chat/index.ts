@@ -72,104 +72,15 @@ serve(async (req) => {
       );
     }
 
-    // Check if this is a data request and fetch real data (точные данные из БД)
-    let realData = '';
+    // Direct responses with real data only - no fake data
     const lowerPrompt = prompt.toLowerCase();
-
-    // Утилита для подсчета с head: true
-    const getCount = async (table: string, filters?: (q: any) => any) => {
-      let q: any = supabaseAdmin.from(table).select('id', { count: 'exact', head: true });
-      if (filters) q = filters(q);
-      const { count, error } = await q;
-      if (error) {
-        console.error(`Count error on ${table}:`, error.message);
-        return null;
-      }
-      return count ?? 0;
-    };
-
-    // Сколько работников (всего/активных/зарегистрированных)
-    if (lowerPrompt.includes('сколько') && (lowerPrompt.includes('работник') || lowerPrompt.includes('человек') || lowerPrompt.includes('сотрудник'))) {
-      const active = await getCount('workers', (q) => q.eq('status', 'active'));
-      const total = await getCount('workers');
-      if (active !== null && total !== null) {
-        realData += `\n\nФАКТИЧЕСКИЕ ДАННЫЕ: Всего работников: ${total}. Активных: ${active}.`;
-      }
-    }
-
-    // "всего?" — сводка по системе
-    if (lowerPrompt.includes('всего')) {
-      const [projectsTotal, workersTotal, workersActive, paymentsCount, wExpCount, pExpCount] = await Promise.all([
-        getCount('projects'),
-        getCount('workers'),
-        getCount('workers', (q) => q.eq('status', 'active')),
-        getCount('payments'),
-        getCount('worker_expenses'),
-        getCount('project_expenses'),
-      ]);
-      if (
-        projectsTotal !== null && workersTotal !== null && workersActive !== null &&
-        paymentsCount !== null && wExpCount !== null && pExpCount !== null
-      ) {
-        const financialOps = (paymentsCount + wExpCount + pExpCount);
-        realData += `\n\nФАКТИЧЕСКИЕ ДАННЫЕ: Проектов: ${projectsTotal}. Работников: ${workersTotal} (активных: ${workersActive}). Финансовых операций: ${financialOps}.`;
-      }
-    }
-
-    // Кто активен — список активных работников
-    if ((lowerPrompt.includes('кто') || lowerPrompt.includes('список')) && lowerPrompt.includes('актив')) {
-      const { data: workers, error } = await supabaseAdmin
-        .from('workers')
-        .select('full_name, position, status')
-        .eq('status', 'active')
-        .order('full_name', { ascending: true })
-        .limit(20);
-      if (!error && workers) {
-        realData += `\n\nФАКТИЧЕСКИЕ ДАННЫЕ — Активные работники (до 20):\n`;
-        workers.forEach((w: any, i: number) => {
-          realData += `${i + 1}. ${w.full_name}${w.position ? ` — ${w.position}` : ''}\n`;
-        });
-      }
-    }
-
-    // Список работников (активных)
-    if (lowerPrompt.includes('список') && lowerPrompt.includes('работник')) {
-      const { data: workers, error } = await supabaseAdmin
-        .from('workers')
-        .select('full_name, position, status')
-        .eq('status', 'active')
-        .order('full_name', { ascending: true })
-        .limit(10);
-      if (!error && workers) {
-        realData += `\n\nФАКТИЧЕСКИЕ ДАННЫЕ — Список работников: \n`;
-        workers.forEach((worker: any, index: number) => {
-          realData += `${index + 1}. ${worker.full_name}${worker.position ? ` — ${worker.position}` : ''}\n`;
-        });
-      }
-    }
-
-    // Список проектов
-    if (lowerPrompt.includes('список') && lowerPrompt.includes('проект')) {
-      const { data: projects, error } = await supabaseAdmin
-        .from('projects')
-        .select('name, status, budget')
-        .order('name', { ascending: true })
-        .limit(10);
-      if (!error && projects) {
-        realData += `\n\nФАКТИЧЕСКИЕ ДАННЫЕ — Список проектов: \n`;
-        projects.forEach((project: any, index: number) => {
-          realData += `${index + 1}. ${project.name} — статус: ${project.status}${project.budget ? `, бюджет: ${project.budget} руб.` : ''}\n`;
-        });
-      }
-    }
-
-    // Direct deterministic responses for common data queries to ensure accuracy
+    
     const sendResponse = (text: string) =>
       new Response(JSON.stringify({
         response: text,
         context: {
           role: context?.role,
-          provider: 'direct',
+          provider: 'database',
           response_time: 0,
           timestamp: new Date().toISOString()
         }
@@ -177,54 +88,89 @@ serve(async (req) => {
 
     // Registered users count
     if (lowerPrompt.includes('сколько') && lowerPrompt.includes('зарегистр')) {
-      const { count, error: profilesErr } = await supabaseAdmin
+      const { count, error } = await supabaseAdmin
         .from('profiles')
         .select('id', { count: 'exact', head: true });
-      if (profilesErr) {
-        console.error('Count profiles error:', profilesErr.message);
-      }
       const total = count ?? 0;
       return sendResponse(`В системе зарегистрировано пользователей: ${total}.`);
     }
 
+    // Workers count (total/active)
+    if (lowerPrompt.includes('сколько') && (lowerPrompt.includes('работник') || lowerPrompt.includes('человек'))) {
+      const { count: totalCount } = await supabaseAdmin
+        .from('workers')
+        .select('id', { count: 'exact', head: true });
+      const { count: activeCount } = await supabaseAdmin
+        .from('workers')
+        .select('id', { count: 'exact', head: true })
+        .eq('status', 'active');
+      return sendResponse(`В системе всего работников: ${totalCount ?? 0}. Активных: ${activeCount ?? 0}.`);
+    }
+
+    // System totals
+    if (lowerPrompt.includes('всего') && !lowerPrompt.includes('работник')) {
+      const [
+        { count: projectsCount },
+        { count: workersCount },
+        { count: activeWorkersCount },
+        { count: paymentsCount }
+      ] = await Promise.all([
+        supabaseAdmin.from('projects').select('id', { count: 'exact', head: true }),
+        supabaseAdmin.from('workers').select('id', { count: 'exact', head: true }),
+        supabaseAdmin.from('workers').select('id', { count: 'exact', head: true }).eq('status', 'active'),
+        supabaseAdmin.from('payments').select('id', { count: 'exact', head: true })
+      ]);
+      return sendResponse(`В системе: ${projectsCount ?? 0} проектов, ${workersCount ?? 0} работников (активных: ${activeWorkersCount ?? 0}), ${paymentsCount ?? 0} платежей.`);
+    }
+
     // Active workers list
-    if ((lowerPrompt.includes('кто') || lowerPrompt.includes('список')) && lowerPrompt.includes('актив')) {
-      const { data: workers, error } = await supabaseAdmin
+    if ((lowerPrompt.includes('кто') && lowerPrompt.includes('актив')) || 
+        (lowerPrompt.includes('список') && lowerPrompt.includes('актив'))) {
+      const { data: workers } = await supabaseAdmin
         .from('workers')
         .select('full_name, position')
         .eq('status', 'active')
-        .order('full_name', { ascending: true })
-        .limit(20);
-      if (!error && workers) {
-        const list = workers.map((w: any, i: number) => `${i + 1}. ${w.full_name}${w.position ? ` — ${w.position}` : ''}`).join('\n');
-        return sendResponse(`Активные работники (до 20):\n${list || 'Нет активных работников.'}`);
+        .order('full_name');
+      if (workers && workers.length > 0) {
+        const list = workers.map((w: any, i: number) => 
+          `${i + 1}. ${w.full_name}${w.position ? ` — ${w.position}` : ''}`
+        ).join('\n');
+        return sendResponse(`Активные работники:\n${list}`);
       }
+      return sendResponse('Нет активных работников.');
     }
 
-    // "как их зовут" — list workers
-    if ((lowerPrompt.includes('как') && (lowerPrompt.includes('зовут') || lowerPrompt.includes('имена'))) || (lowerPrompt.includes('список') && lowerPrompt.includes('работник'))) {
-      const { data: workers, error } = await supabaseAdmin
+    // All workers list
+    if ((lowerPrompt.includes('как') && lowerPrompt.includes('зовут')) || 
+        (lowerPrompt.includes('список') && lowerPrompt.includes('работник'))) {
+      const { data: workers } = await supabaseAdmin
         .from('workers')
         .select('full_name, position, status')
-        .order('full_name', { ascending: true })
-        .limit(20);
-      if (!error && workers) {
-        const list = workers.map((w: any, i: number) => `${i + 1}. ${w.full_name}${w.position ? ` — ${w.position}` : ''}${w.status ? ` (${w.status})` : ''}`).join('\n');
-        return sendResponse(`Список работников (до 20):\n${list || 'Работники не найдены.'}`);
+        .order('full_name');
+      if (workers && workers.length > 0) {
+        const list = workers.map((w: any, i: number) => 
+          `${i + 1}. ${w.full_name}${w.position ? ` — ${w.position}` : ''}${w.status !== 'active' ? ` (${w.status})` : ''}`
+        ).join('\n');
+        return sendResponse(`Список работников:\n${list}`);
       }
+      return sendResponse('Работники не найдены.');
     }
 
     // Projects list
-    if (((lowerPrompt.includes('какие') || lowerPrompt.includes('список')) && lowerPrompt.includes('проект')) || lowerPrompt.includes('проекты есть')) {
-      const { data: projects, error } = await supabaseAdmin
+    if ((lowerPrompt.includes('какие') && lowerPrompt.includes('проект')) || 
+        (lowerPrompt.includes('список') && lowerPrompt.includes('проект')) ||
+        lowerPrompt.includes('проекты есть')) {
+      const { data: projects } = await supabaseAdmin
         .from('projects')
         .select('name, status, budget')
-        .order('name', { ascending: true })
-        .limit(10);
-      if (!error && projects) {
-        const list = projects.map((p: any, i: number) => `${i + 1}. ${p.name} — статус: ${p.status}${p.budget ? `, бюджет: ${p.budget} руб.` : ''}`).join('\n');
-        return sendResponse(`Список проектов:\n${list || 'Проекты не найдены.'}`);
+        .order('name');
+      if (projects && projects.length > 0) {
+        const list = projects.map((p: any, i: number) => 
+          `${i + 1}. ${p.name} — статус: ${p.status}${p.budget ? `, бюджет: ${Number(p.budget).toLocaleString()} руб.` : ''}`
+        ).join('\n');
+        return sendResponse(`Список проектов:\n${list}`);
       }
+      return sendResponse('Проекты не найдены.');
     }
 
     // Get active AI providers ordered by priority
@@ -286,7 +232,7 @@ ${realData ? 'ИСПОЛЬЗУЙ ЭТИ ФАКТИЧЕСКИЕ ДАННЫЕ ДЛ
           const requestBody = {
             model: model,
             messages: [
-              { role: 'system', content: secureSystemPrompt },
+              { role: 'system', content: baseSystemPrompt },
               { role: 'user', content: prompt }
             ],
           };
@@ -333,10 +279,10 @@ ${realData ? 'ИСПОЛЬЗУЙ ЭТИ ФАКТИЧЕСКИЕ ДАННЫЕ ДЛ
             },
             body: JSON.stringify({
               model: model,
-              messages: [
-                { role: 'system', content: secureSystemPrompt },
-                { role: 'user', content: prompt }
-              ],
+            messages: [
+              { role: 'system', content: baseSystemPrompt },
+              { role: 'user', content: prompt }
+            ],
               max_tokens: context?.role === 'advanced' ? 1000 : context?.role === 'intermediate' ? 600 : 300,
               temperature: 0.7,
             }),
@@ -369,9 +315,9 @@ ${realData ? 'ИСПОЛЬЗУЙ ЭТИ ФАКТИЧЕСКИЕ ДАННЫЕ ДЛ
             body: JSON.stringify({
               model: model,
               max_tokens: context?.role === 'advanced' ? 1000 : context?.role === 'intermediate' ? 600 : 300,
-              messages: [
-                { role: 'user', content: `${secureSystemPrompt}\n\n${prompt}` }
-              ],
+            messages: [
+              { role: 'user', content: `${baseSystemPrompt}\n\n${prompt}` }
+            ],
             }),
           });
 

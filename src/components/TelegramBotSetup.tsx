@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { useProjects } from '@/hooks/useWorkers';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -22,6 +23,7 @@ import {
 
 export default function TelegramBotSetup() {
   const { toast } = useToast();
+  const { data: projects } = useProjects();
   const [loading, setLoading] = useState(false);
   const [botStatus, setBotStatus] = useState('unknown');
   const [chatId, setChatId] = useState('');
@@ -300,7 +302,7 @@ export default function TelegramBotSetup() {
                 <Button 
                   className="w-full"
                   onClick={() => sendNotification('project_status_update', {
-                    projectName: 'Тестовый проект',
+                    projectName: (projects && projects.length > 0) ? projects[0].name : 'Реальный проект',
                     status: 'В работе',
                     progress: 65,
                     budget: 500000,
@@ -316,7 +318,7 @@ export default function TelegramBotSetup() {
                   variant="outline"
                   className="w-full"
                   onClick={() => sendNotification('budget_alert', {
-                    projectName: 'Тестовый проект',
+                    projectName: (projects && projects.length > 0) ? projects[0].name : 'Реальный проект',
                     budget: 500000,
                     spent: 450000,
                     overrun: 15
