@@ -129,7 +129,9 @@ serve(async (req) => {
       }
       
       // Attendance queries
-      if (lower.includes('посещаем') || lower.includes('явка') || lower.includes('работал')) {
+      if (lower.includes('посещаем') || lower.includes('явка') || lower.includes('работал') || 
+          lower.includes('дней отработан') || lower.includes('день работ') || lower.includes('отработк')) {
+        if (lower.includes('сколько дней') || lower.includes('всего дней')) return { type: 'attendance', subtype: 'total_days' };
         return { type: 'attendance' };
       }
       
@@ -300,6 +302,36 @@ serve(async (req) => {
 
       case 'attendance':
         if (!isAdmin && !isForeman) return sendResponse('У вас нет доступа к данным о посещаемости.');
+        
+        if (intent.subtype === 'total_days') {
+          // Calculate total days worked across all workers
+          const { data: attendance } = await supabaseAdmin
+            .from('attendance')
+            .select('date, status, workers!inner(full_name)')
+            .eq('status', 'present');
+            
+          if (attendance && attendance.length > 0) {
+            // Count total present days
+            const totalDays = attendance.length;
+            
+            // Group by worker to show breakdown
+            const workerDays: Record<string, number> = {};
+            for (const a of attendance as any[]) {
+              if (!workerDays[a.workers.full_name]) {
+                workerDays[a.workers.full_name] = 0;
+              }
+              workerDays[a.workers.full_name]++;
+            }
+            
+            const breakdown = Object.entries(workerDays)
+              .sort(([,a], [,b]) => b - a)
+              .map(([name, days], i) => `${i + 1}. ${name} — ${days} дней`)
+              .join('\n');
+              
+            return sendResponse(`Всего дней отработано: ${totalDays}\n\nПо работникам:\n${breakdown}`);
+          }
+          return sendResponse('Данных о посещаемости не найдено.');
+        }
         
         const { data: attendance } = await supabaseAdmin
           .from('attendance')
