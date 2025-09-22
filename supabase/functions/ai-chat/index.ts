@@ -96,172 +96,248 @@ serve(async (req) => {
         }
       }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
 
-    // Enhanced intent recognition for various question patterns
+    // Enhanced intent recognition with comprehensive database access
     
-    // Registered users count
-    if ((lowerPrompt.includes('сколько') && lowerPrompt.includes('зарегистр')) || 
-        (lowerPrompt.includes('сколько') && lowerPrompt.includes('пользовател'))) {
-      const { count, error } = await supabaseAdmin
-        .from('profiles')
-        .select('id', { count: 'exact', head: true });
-      const total = count ?? 0;
-      return sendResponse(`В системе зарегистрировано пользователей: ${total}.`);
-    }
-
-    // Workers count and list - enhanced pattern matching
-    if ((lowerPrompt.includes('сколько') && (lowerPrompt.includes('работник') || lowerPrompt.includes('человек'))) ||
-        lowerPrompt.includes('работников?') || lowerPrompt.includes('работников') ||
-        (lowerPrompt.includes('кто') && lowerPrompt.includes('работ')) ||
-        lowerPrompt.includes('список работников')) {
+    // Smart intent recognition and comprehensive data access
+    const analyzeIntent = (prompt: string) => {
+      const lower = prompt.toLowerCase();
       
-      if (lowerPrompt.includes('сколько')) {
-        // Count workers
-        const { count: totalCount } = await supabaseAdmin
-          .from('workers')
-          .select('id', { count: 'exact', head: true });
-        const { count: activeCount } = await supabaseAdmin
-          .from('workers')
-          .select('id', { count: 'exact', head: true })
-          .eq('status', 'active');
-        return sendResponse(`В системе всего работников: ${totalCount ?? 0}. Активных: ${activeCount ?? 0}.`);
-      } else {
-        // List workers based on role
-        if (!isAdmin && !isForeman) {
-          return sendResponse('У вас нет доступа к просмотру списка работников.');
+      // Data counting queries
+      if (lower.includes('сколько')) {
+        if (lower.includes('пользовател') || lower.includes('зарегистр')) return { type: 'count', entity: 'users' };
+        if (lower.includes('работник') || lower.includes('человек')) return { type: 'count', entity: 'workers' };
+        if (lower.includes('проект')) return { type: 'count', entity: 'projects' };
+        if (lower.includes('клиент')) return { type: 'count', entity: 'clients' };
+        if (lower.includes('задач')) return { type: 'count', entity: 'tasks' };
+        if (lower.includes('выплат') || lower.includes('платеж')) return { type: 'financial', subtype: 'payments_summary' };
+      }
+      
+      // List queries  
+      if (lower.includes('список') || lower.includes('какие') || lower.includes('кто') || lower.includes('что за')) {
+        if (lower.includes('работник')) return { type: 'list', entity: 'workers' };
+        if (lower.includes('проект')) return { type: 'list', entity: 'projects' };
+        if (lower.includes('клиент')) return { type: 'list', entity: 'clients' };
+        if (lower.includes('задач')) return { type: 'list', entity: 'tasks' };
+        if (lower.includes('роли') || lower.includes('права')) return { type: 'list', entity: 'roles' };
+      }
+      
+      // Financial queries
+      if (lower.includes('выплач') || lower.includes('выплат') || lower.includes('платеж') || lower.includes('зарплат')) {
+        if (lower.includes('кому') || lower.includes('кто получил')) return { type: 'financial', subtype: 'payments_by_worker' };
+        if (lower.includes('сколько')) return { type: 'financial', subtype: 'payments_summary' };
+        return { type: 'financial', subtype: 'general' };
+      }
+      
+      // Attendance queries
+      if (lower.includes('посещаем') || lower.includes('явка') || lower.includes('работал')) {
+        return { type: 'attendance' };
+      }
+      
+      // Project queries
+      if (lower.includes('прогресс') || lower.includes('статус проект')) {
+        return { type: 'project_status' };
+      }
+      
+      // Expense queries
+      if (lower.includes('расход') || lower.includes('трат') || lower.includes('затрат')) {
+        return { type: 'expenses' };
+      }
+      
+      return { type: 'general' };
+    };
+
+    const intent = analyzeIntent(prompt);
+    
+    // Handle different intent types with role-based data access
+    switch (intent.type) {
+      case 'count':
+        if (intent.entity === 'users') {
+          const { count } = await supabaseAdmin.from('profiles').select('id', { count: 'exact', head: true });
+          return sendResponse(`В системе зарегистрировано пользователей: ${count ?? 0}.`);
         }
         
-        const { data: workers } = await supabaseAdmin
-          .from('workers')
-          .select('full_name, position, status')
-          .order('full_name')
-          .limit(50);
+        if (intent.entity === 'workers') {
+          const { count: totalCount } = await supabaseAdmin.from('workers').select('id', { count: 'exact', head: true });
+          const { count: activeCount } = await supabaseAdmin.from('workers').select('id', { count: 'exact', head: true }).eq('status', 'active');
+          return sendResponse(`В системе всего работников: ${totalCount ?? 0}. Активных: ${activeCount ?? 0}.`);
+        }
+        
+        if (intent.entity === 'projects') {
+          if (!isAdmin && !isForeman) return sendResponse('У вас нет доступа к информации о проектах.');
+          const { count } = await supabaseAdmin.from('projects').select('id', { count: 'exact', head: true });
+          return sendResponse(`В системе проектов: ${count ?? 0}.`);
+        }
+        
+        if (intent.entity === 'clients') {
+          if (!isAdmin && !isForeman) return sendResponse('У вас нет доступа к информации о клиентах.');
+          const { count } = await supabaseAdmin.from('clients').select('id', { count: 'exact', head: true });
+          return sendResponse(`В системе клиентов: ${count ?? 0}.`);
+        }
+        break;
+
+      case 'list':
+        if (intent.entity === 'workers') {
+          if (!isAdmin && !isForeman) return sendResponse('У вас нет доступа к просмотру списка работников.');
           
-        if (workers && workers.length > 0) {
-          const list = workers.map((w: any, i: number) => 
-            `${i + 1}. ${w.full_name}${w.position ? ` — ${w.position}` : ''}${w.status !== 'active' ? ` (${w.status})` : ''}`
+          let query = supabaseAdmin.from('workers').select('full_name, position, status').order('full_name').limit(50);
+          
+          if (!isAdmin && isForeman) {
+            // Foreman sees only assigned workers
+            const { data: foremanProfile } = await supabaseAdmin.from('profiles').select('id').eq('user_id', user.id).single();
+            if (foremanProfile) {
+              const { data: assignments } = await supabaseAdmin
+                .from('worker_assignments')
+                .select('worker_id')
+                .eq('foreman_id', foremanProfile.id);
+              const workerIds = assignments?.map(a => a.worker_id) || [];
+              query = query.in('id', workerIds);
+            }
+          }
+          
+          const { data: workers } = await query;
+          if (workers && workers.length > 0) {
+            const list = workers.map((w: any, i: number) => 
+              `${i + 1}. ${w.full_name}${w.position ? ` — ${w.position}` : ''}${w.status !== 'active' ? ` (${w.status})` : ''}`
+            ).join('\n');
+            return sendResponse(`Список работников:\n${list}`);
+          }
+          return sendResponse('Работники не найдены.');
+        }
+        
+        if (intent.entity === 'projects') {
+          if (!isAdmin && !isForeman) return sendResponse('У вас нет доступа к просмотру списка проектов.');
+          
+          const { data: projects } = await supabaseAdmin
+            .from('projects')
+            .select('name, status, budget, clients(name)')
+            .order('name')
+            .limit(20);
+            
+          if (projects && projects.length > 0) {
+            const list = projects.map((p: any, i: number) => {
+              const clientName = p.clients?.name ? ` (${p.clients.name})` : '';
+              const budget = p.budget ? `, бюджет: ${Number(p.budget).toLocaleString()} руб.` : '';
+              return `${i + 1}. ${p.name}${clientName} — статус: ${p.status}${budget}`;
+            }).join('\n');
+            return sendResponse(`Список проектов:\n${list}`);
+          }
+          return sendResponse('Проекты не найдены.');
+        }
+        
+        if (intent.entity === 'clients') {
+          if (!isAdmin && !isForeman) return sendResponse('У вас нет доступа к просмотру списка клиентов.');
+          
+          const { data: clients } = await supabaseAdmin
+            .from('clients')
+            .select('name, company_type, status, contact_person')
+            .order('name')
+            .limit(20);
+            
+          if (clients && clients.length > 0) {
+            const list = clients.map((c: any, i: number) => 
+              `${i + 1}. ${c.name}${c.contact_person ? ` (${c.contact_person})` : ''} — ${c.company_type}, статус: ${c.status}`
+            ).join('\n');
+            return sendResponse(`Список клиентов:\n${list}`);
+          }
+          return sendResponse('Клиенты не найдены.');
+        }
+        
+        if (intent.entity === 'roles') {
+          if (!isAdmin) return sendResponse('У вас нет доступа к информации о ролях пользователей.');
+          
+          const { data: roles } = await supabaseAdmin
+            .from('user_roles')
+            .select('role, profiles!inner(full_name)')
+            .eq('is_active', true)
+            .order('role');
+            
+          if (roles && roles.length > 0) {
+            const list = roles.map((r: any, i: number) => 
+              `${i + 1}. ${r.profiles.full_name} — ${r.role}`
+            ).join('\n');
+            return sendResponse(`Роли пользователей:\n${list}`);
+          }
+          return sendResponse('Роли не найдены.');
+        }
+        break;
+
+      case 'financial':
+        if (!isAdmin) return sendResponse('У вас нет доступа к финансовой информации.');
+        
+        const { data: payments } = await supabaseAdmin
+          .from('payments')
+          .select('worker_id, amount, workers!inner(full_name)')
+          .order('amount', { ascending: false });
+          
+        if (!payments || payments.length === 0) {
+          return sendResponse('Данных о выплатах не найдено.');
+        }
+        
+        // Group by worker
+        const totals: Record<string, { name: string, sum: number }> = {};
+        for (const p of payments as any[]) {
+          if (!p.worker_id || p.amount == null) continue;
+          const amt = Number(p.amount);
+          if (Number.isFinite(amt)) {
+            if (!totals[p.worker_id]) {
+              totals[p.worker_id] = { name: p.workers.full_name, sum: 0 };
+            }
+            totals[p.worker_id].sum += amt;
+          }
+        }
+        
+        const sorted = Object.values(totals)
+          .sort((a, b) => b.sum - a.sum)
+          .slice(0, 50);
+          
+        if (sorted.length > 0) {
+          const list = sorted.map((item, i) => 
+            `${i + 1}. ${item.name} — ${item.sum.toLocaleString()} руб.`
           ).join('\n');
-          return sendResponse(`Список работников:\n${list}`);
+          return sendResponse(`Суммы выплат по работникам:\n${list}`);
         }
-        return sendResponse('Работники не найдены.');
-      }
-    }
-
-    // System totals
-    if (lowerPrompt.includes('всего') && !lowerPrompt.includes('работник')) {
-      const [
-        { count: projectsCount },
-        { count: workersCount },
-        { count: activeWorkersCount },
-        { count: paymentsCount }
-      ] = await Promise.all([
-        supabaseAdmin.from('projects').select('id', { count: 'exact', head: true }),
-        supabaseAdmin.from('workers').select('id', { count: 'exact', head: true }),
-        supabaseAdmin.from('workers').select('id', { count: 'exact', head: true }).eq('status', 'active'),
-        supabaseAdmin.from('payments').select('id', { count: 'exact', head: true })
-      ]);
-      return sendResponse(`В системе: ${projectsCount ?? 0} проектов, ${workersCount ?? 0} работников (активных: ${activeWorkersCount ?? 0}), ${paymentsCount ?? 0} платежей.`);
-    }
-
-    // Enhanced projects list recognition
-    if ((lowerPrompt.includes('какие') && lowerPrompt.includes('проект')) || 
-        (lowerPrompt.includes('список') && lowerPrompt.includes('проект')) ||
-        lowerPrompt.includes('проекты есть') || lowerPrompt.includes('проекты?') ||
-        lowerPrompt.includes('проектов') || lowerPrompt.includes('что за проекты')) {
-      
-      if (!isAdmin && !isForeman) {
-        return sendResponse('У вас нет доступа к просмотру списка проектов.');
-      }
-      
-      const { data: projects } = await supabaseAdmin
-        .from('projects')
-        .select('name, status, budget')
-        .order('name')
-        .limit(20);
-        
-      if (projects && projects.length > 0) {
-        const list = projects.map((p: any, i: number) => 
-          `${i + 1}. ${p.name} — статус: ${p.status}${p.budget ? `, бюджет: ${Number(p.budget).toLocaleString()} руб.` : ''}`
-        ).join('\n');
-        return sendResponse(`Список проектов:\n${list}`);
-      }
-      return sendResponse('Проекты не найдены.');
-    }
-
-    // Enhanced payments and financial data
-    if ((lowerPrompt.includes('выплач') || lowerPrompt.includes('выплат') || lowerPrompt.includes('платеж')) && 
-        (lowerPrompt.includes('сколько') || lowerPrompt.includes('кому') || lowerPrompt.includes('кто получил'))) {
-      
-      if (!isAdmin && !context?.canAccessFinancials) {
-        return sendResponse('У вас нет доступа к финансовой информации.');
-      }
-      
-      const { data: payments, error: payErr } = await supabaseAdmin
-        .from('payments')
-        .select('worker_id, amount');
-      if (payErr) {
-        console.error('Error fetching payments:', payErr);
-        return sendResponse('Ошибка при получении данных о выплатах.');
-      }
-      if (!payments || payments.length === 0) {
         return sendResponse('Данных о выплатах не найдено.');
-      }
-      const totals: Record<string, number> = {};
-      for (const p of payments as any[]) {
-        if (!p.worker_id || p.amount == null) continue;
-        const amt = Number(p.amount);
-        if (Number.isFinite(amt)) {
-          totals[p.worker_id] = (totals[p.worker_id] || 0) + amt;
+
+      case 'attendance':
+        if (!isAdmin && !isForeman) return sendResponse('У вас нет доступа к данным о посещаемости.');
+        
+        const { data: attendance } = await supabaseAdmin
+          .from('attendance')
+          .select('date, status, hours_worked, workers!inner(full_name)')
+          .order('date', { ascending: false })
+          .limit(20);
+          
+        if (attendance && attendance.length > 0) {
+          const list = attendance.map((a: any, i: number) => 
+            `${i + 1}. ${a.workers.full_name} — ${a.date} — ${a.status}${a.hours_worked ? ` (${a.hours_worked}ч)` : ''}`
+          ).join('\n');
+          return sendResponse(`Последние записи посещаемости:\n${list}`);
         }
-      }
-      const workerIds = Object.keys(totals);
-      if (workerIds.length === 0) {
-        return sendResponse('Данных о выплатах не найдено.');
-      }
-      const { data: workersMapData, error: workersErr } = await supabaseAdmin
-        .from('workers')
-        .select('id, full_name')
-        .in('id', workerIds);
-      if (workersErr) {
-        console.error('Error fetching workers for payments:', workersErr);
-        return sendResponse('Ошибка при получении данных о работниках.');
-      }
-      const nameById: Record<string, string> = {};
-      (workersMapData || []).forEach((w: any) => { nameById[w.id] = w.full_name; });
-      const sorted = Object.entries(totals)
-        .map(([id, sum]) => ({ name: nameById[id] || id, sum }))
-        .sort((a, b) => (b.sum as number) - (a.sum as number))
-        .slice(0, 50);
-      const list = sorted.map((item, i) => `${i + 1}. ${item.name} — ${Number(item.sum).toLocaleString()} руб.`).join('\n');
-      return sendResponse(`Суммы выплат по работникам:\n${list}`);
+        return sendResponse('Данных о посещаемости не найдено.');
+
+      case 'expenses':
+        if (!isAdmin) return sendResponse('У вас нет доступа к информации о расходах.');
+        
+        const { data: expenses } = await supabaseAdmin
+          .from('project_expenses')
+          .select('amount, date, description, projects!inner(name), expense_categories(name)')
+          .order('date', { ascending: false })
+          .limit(20);
+          
+        if (expenses && expenses.length > 0) {
+          const list = expenses.map((e: any, i: number) => 
+            `${i + 1}. ${e.projects.name} — ${e.amount.toLocaleString()} руб. (${e.date})${e.description ? `: ${e.description}` : ''}`
+          ).join('\n');
+          return sendResponse(`Последние расходы по проектам:\n${list}`);
+        }
+        return sendResponse('Данных о расходах не найдено.');
+        
+      default:
+        // For general queries, fall back to AI providers
+        break;
     }
 
-    // Attendance data
-    if (lowerPrompt.includes('посещаем') || lowerPrompt.includes('явка') || 
-        (lowerPrompt.includes('кто') && lowerPrompt.includes('работал'))) {
-      
-      if (!isAdmin && !isForeman) {
-        return sendResponse('У вас нет доступа к данным о посещаемости.');
-      }
-      
-      const { data: attendance } = await supabaseAdmin
-        .from('attendance')
-        .select(`
-          date,
-          status,
-          hours_worked,
-          workers!inner(full_name)
-        `)
-        .order('date', { ascending: false })
-        .limit(20);
-        
-      if (attendance && attendance.length > 0) {
-        const list = attendance.map((a: any, i: number) => 
-          `${i + 1}. ${a.workers.full_name} — ${a.date} — ${a.status}${a.hours_worked ? ` (${a.hours_worked}ч)` : ''}`
-        ).join('\n');
-        return sendResponse(`Последние записи посещаемости:\n${list}`);
-      }
-      return sendResponse('Данных о посещаемости не найдено.');
-    }
+    // If we get here, it's a general query that needs AI processing
 
     // Get active AI providers ordered by priority
     const { data: providers, error: providersError } = await supabaseAdmin
