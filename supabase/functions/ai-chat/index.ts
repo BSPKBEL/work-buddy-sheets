@@ -80,7 +80,10 @@ serve(async (req) => {
         
         // Projects and assignments
         const { data: projects } = await supabaseAdmin.from('projects').select('*, clients(name)');
-        const { data: assignments } = await supabaseAdmin.from('worker_assignments').select('*, workers(full_name), projects(name)');
+        const { data: assignments, error: assignmentsError } = await supabaseAdmin.from('worker_assignments').select('*, workers(full_name), projects(name)');
+        if (assignmentsError) {
+          console.error('Error fetching assignments:', assignmentsError);
+        }
         const { data: tasks } = await supabaseAdmin.from('project_tasks').select('*, projects(name), workers(full_name)');
         data.projects = projects;
         data.assignments = assignments;
@@ -197,7 +200,15 @@ serve(async (req) => {
 7. Для финансовых данных используй формат "X,XXX руб."
 8. Отвечай кратко и по существу
 9. ВАЖНО: На вопросы "кто?", "какие рабочие?", "кто работает?" отвечай конкретными именами из данных
-10. На вопросы о количестве рабочих/проектов считай данные из worker_assignments и projects
+10. На вопросы о количестве рабочих/проектов считай данные из workers и projects
+
+ОСОБЕННОСТИ РАБОТЫ С НАЗНАЧЕНИЯМИ (assignments):
+- В массиве "assignments" содержатся данные о назначениях работников на проекты
+- Каждая запись содержит: worker_id, project_id, role, start_date, end_date, workers.full_name, projects.name
+- Если end_date = null или в будущем - назначение активно
+- Поле role показывает должность (worker/foreman)
+- НЕ говори что "assignments: null" если данные есть - анализируй их правильно
+- Когда спрашивают про привязки к проектам, используй именно эти данные
 
 КОНТЕКСТ РАЗГОВОРА: Отвечай исходя из предыдущего контекста беседы если это уместно.
 
