@@ -81,13 +81,13 @@ export function AIChatWidget() {
 
       if (error) throw error;
 
-      const response = data?.response || 'Не удалось получить ответ от AI.';
+      const responseText = (data?.message as string) || (data?.response as string) || 'Не удалось получить ответ от AI.';
       const aiMessage: Message = {
         id: (Date.now() + 2).toString(),
-        content: response,
+        content: responseText,
         sender: 'ai',
         timestamp: new Date(),
-        truncated: response.length > 300
+        truncated: responseText.length > 300
       };
 
       setMessages(prev => [...prev, aiMessage]);
