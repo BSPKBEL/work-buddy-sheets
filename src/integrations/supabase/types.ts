@@ -912,6 +912,83 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      ai_assign_worker_to_project: {
+        Args: {
+          _end_date?: string
+          _foreman_id?: string
+          _project_id: string
+          _role?: string
+          _start_date?: string
+          _worker_id: string
+        }
+        Returns: Json
+      }
+      ai_create_payment: {
+        Args: {
+          _amount: number
+          _date: string
+          _description?: string
+          _worker_id: string
+        }
+        Returns: Json
+      }
+      ai_create_project: {
+        Args: {
+          _address?: string
+          _budget?: number
+          _client_id?: string
+          _description?: string
+          _end_date?: string
+          _name: string
+          _priority?: string
+          _start_date?: string
+        }
+        Returns: Json
+      }
+      ai_create_task: {
+        Args: {
+          _assigned_worker_id?: string
+          _description?: string
+          _due_date?: string
+          _estimated_hours?: number
+          _priority?: string
+          _project_id: string
+          _title: string
+        }
+        Returns: Json
+      }
+      ai_create_worker: {
+        Args: {
+          _daily_rate?: number
+          _full_name: string
+          _notes?: string
+          _phone?: string
+          _position?: string
+        }
+        Returns: Json
+      }
+      ai_record_attendance: {
+        Args: {
+          _date: string
+          _hours_worked?: number
+          _notes?: string
+          _status: string
+          _worker_id: string
+        }
+        Returns: Json
+      }
+      ai_update_worker: {
+        Args: {
+          _daily_rate?: number
+          _full_name?: string
+          _notes?: string
+          _phone?: string
+          _position?: string
+          _status?: string
+          _worker_id: string
+        }
+        Returns: Json
+      }
       check_and_log_client_access: {
         Args: { _action: string; _client_id: string }
         Returns: boolean

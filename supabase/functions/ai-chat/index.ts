@@ -122,8 +122,109 @@ serve(async (req) => {
       }
     };
 
-    // Enhanced AI-powered query processing
-    const processWithAI = async (prompt: string, systemData: any) => {
+    // Available AI tools for database operations
+    const availableTools = [
+      {
+        type: "function",
+        function: {
+          name: "create_worker",
+          description: "Создать нового работника в системе",
+          parameters: {
+            type: "object",
+            properties: {
+              full_name: { type: "string", description: "Полное имя работника" },
+              position: { type: "string", description: "Должность" },
+              phone: { type: "string", description: "Номер телефона" },
+              daily_rate: { type: "number", description: "Дневная ставка" },
+              notes: { type: "string", description: "Дополнительные заметки" }
+            },
+            required: ["full_name"]
+          }
+        }
+      },
+      {
+        type: "function", 
+        function: {
+          name: "record_attendance", 
+          description: "Записать посещаемость работника",
+          parameters: {
+            type: "object",
+            properties: {
+              worker_id: { type: "string", description: "ID работника" },
+              date: { type: "string", format: "date", description: "Дата в формате YYYY-MM-DD" },
+              status: { type: "string", enum: ["present", "absent", "sick", "vacation"], description: "Статус посещаемости" },
+              hours_worked: { type: "number", description: "Количество отработанных часов" },
+              notes: { type: "string", description: "Заметки" }
+            },
+            required: ["worker_id", "date", "status"]
+          }
+        }
+      },
+      {
+        type: "function",
+        function: {
+          name: "create_payment",
+          description: "Создать платеж работнику",
+          parameters: {
+            type: "object", 
+            properties: {
+              worker_id: { type: "string", description: "ID работника" },
+              amount: { type: "number", description: "Сумма платежа" },
+              date: { type: "string", format: "date", description: "Дата платежа" },
+              description: { type: "string", description: "Описание платежа" }
+            },
+            required: ["worker_id", "amount", "date"]
+          }
+        }
+      }
+    ];
+
+    // Execute tool function
+    async function executeToolFunction(name: string, args: any): Promise<any> {
+      console.log(`Executing tool function: ${name}`, args);
+      
+      try {
+        switch (name) {
+          case 'create_worker':
+            const { data: createResult } = await supabaseAdmin.rpc('ai_create_worker', {
+              _full_name: args.full_name,
+              _position: args.position,
+              _phone: args.phone,
+              _daily_rate: args.daily_rate || 0,
+              _notes: args.notes
+            });
+            return createResult;
+            
+          case 'record_attendance':
+            const { data: attendanceResult } = await supabaseAdmin.rpc('ai_record_attendance', {
+              _worker_id: args.worker_id,
+              _date: args.date,
+              _status: args.status,
+              _hours_worked: args.hours_worked || 8,
+              _notes: args.notes
+            });
+            return attendanceResult;
+            
+          case 'create_payment':
+            const { data: paymentResult } = await supabaseAdmin.rpc('ai_create_payment', {
+              _worker_id: args.worker_id,
+              _amount: args.amount,
+              _date: args.date,
+              _description: args.description
+            });
+            return paymentResult;
+            
+          default:
+            return { success: false, error: `Неизвестная функция: ${name}` };
+        }
+      } catch (error) {
+        console.error(`Error executing ${name}:`, error);
+        return { success: false, error: `Ошибка выполнения ${name}: ${error instanceof Error ? error.message : String(error)}` };
+      }
+    }
+
+    // Enhanced AI-powered query processing with full data access and tools
+    const processWithAI = async (prompt: string, systemData: any): Promise<string> => {
       try {
         // Get active AI providers
         const { data: providers } = await supabaseAdmin
@@ -166,51 +267,65 @@ serve(async (req) => {
           return 'API ключ не настроен для выбранного провайдера.';
         }
 
-        // Filter system data based on user role
-        let filteredData = systemData;
-        if (!isAdmin) {
-          // Remove sensitive data for non-admin users
-          filteredData = {
-            ...systemData,
-            clients: systemData.clients?.map((c: any) => ({
-              id: c.id,
-              name: c.name,
-              status: c.status,
-              company_type: c.company_type
-            })),
-            payments: isForeman ? systemData.payments : [],
-            workerExpenses: isAdmin ? systemData.workerExpenses : [],
-            projectExpenses: isForeman || isAdmin ? systemData.projectExpenses : []
-          };
-        }
+        // ИИ получает ПОЛНЫЙ доступ к данным для анализа, но контролирует вывод по ролям
+        const systemPrompt = `Ты - помощник для системы управления строительными проектами с полным доступом к данным и возможностями создания/обновления записей.
 
-        // Create comprehensive system prompt
-        const systemPrompt = `Ты - помощник для системы управления строительными проектами. 
-        
 РОЛЬ ПОЛЬЗОВАТЕЛЯ: ${isAdmin ? 'Администратор' : isForeman ? 'Прораб' : 'Работник'}
-ДОСТУПНЫЕ ДАННЫЕ: ${JSON.stringify(filteredData, null, 2)}
 
-ИНСТРУКЦИИ:
+ДОСТУПНЫЕ ДАННЫЕ (ПОЛНЫЙ НАБОР): ${JSON.stringify(systemData, null, 2)}
+
+КРИТИЧЕСКИЕ ПРАВИЛА БЕЗОПАСНОСТИ ПО РОЛЯМ:
+
+АДМИНИСТРАТОР (${isAdmin}):
+- Полный доступ ко всей информации
+- Может видеть финансы, платежи, личные данные клиентов
+- Может получать информацию об управлении пользователями
+- Может использовать все доступные инструменты
+
+ПРОРАБ (${isForeman}):
+- Может видеть данные работников, проекты, задачи
+- Ограниченный доступ к финансам (только общая информация)
+- НЕ показывать: детальные платежи, личные телефоны/адреса клиентов
+- Маскировать: контакты клиентов (телефон: XXX***XX, email: xxx***@domain)
+- Может записывать посещаемость для своих работников
+
+РАБОТНИК (обычный пользователь):
+- Может видеть только базовую информацию о проектах и коллегах
+- НЕ показывать: финансовые данные, платежи, личную информацию клиентов
+- НЕ показывать: детальные контакты, ставки работников
+- НЕ может использовать инструменты для создания/изменения данных
+
+ДОСТУПНЫЕ ИНСТРУМЕНТЫ:
+- create_worker: Создание нового работника (только админ)
+- record_attendance: Запись посещаемости (админ и прораб)
+- create_payment: Создание платежа (только админ)
+
+ИНСТРУКЦИИ ПО ВЫВОДУ:
 1. Отвечай только на русском языке
 2. Используй ТОЛЬКО данные из базы данных выше
-3. Не придумывай никакой информации
+3. НЕ придумывай никакой информации
 4. Если данных нет - честно скажи об этом
-5. Форматируй ответы читабельно с нумерацией списков и используй имена людей
-6. Учитывай роль пользователя при предоставлении информации
-7. Для финансовых данных используй формат "X,XXX руб."
+5. Форматируй ответы читабельно с нумерацией списков
+6. Используй имена людей из данных
+7. Для финансов используй формат "X,XXX руб."
 8. Отвечай кратко и по существу
-9. ВАЖНО: На вопросы "кто?", "какие рабочие?", "кто работает?" отвечай конкретными именами из данных
-10. На вопросы о количестве рабочих/проектов считай данные из workers и projects
+9. ВАЖНО: На вопросы "кто?", "какие рабочие?" отвечай конкретными именами
+10. Считай данные из массивов workers, projects, assignments
+11. При запросах на создание/изменение данных используй соответствующие инструменты
 
-ОСОБЕННОСТИ РАБОТЫ С НАЗНАЧЕНИЯМИ (assignments):
-- В массиве "assignments" содержатся данные о назначениях работников на проекты
-- Каждая запись содержит: worker_id, project_id, role, start_date, end_date, workers.full_name, projects.name
-- Если end_date = null или в будущем - назначение активно
-- Поле role показывает должность (worker/foreman)
-- НЕ говори что "assignments: null" если данные есть - анализируй их правильно
-- Когда спрашивают про привязки к проектам, используй именно эти данные
+ОСОБЕННОСТИ РАБОТЫ С НАЗНАЧЕНИЯМИ:
+- assignments содержат назначения работников на проекты
+- Структура: worker_id, project_id, role, start_date, end_date, workers.full_name, projects.name
+- Активные назначения: end_date = null или в будущем
+- role показывает должность в проекте
 
-КОНТЕКСТ РАЗГОВОРА: Отвечай исходя из предыдущего контекста беседы если это уместно.
+КОНТРОЛЬ ДОСТУПА К ИНФОРМАЦИИ:
+${isAdmin ? 
+  '- Администратор: показывай всю информацию без ограничений' :
+  isForeman ? 
+  '- Прораб: скрывай детальные финансы и личные данные клиентов, маскируй контакты' :
+  '- Работник: показывай только общую информацию, скрывай финансы и личные данные'
+}
 
 Пользователь спрашивает: "${prompt}"`;
 
@@ -233,14 +348,16 @@ serve(async (req) => {
             }),
           });
         } else {
-          // OpenAI/DeepSeek format
+          // OpenAI/DeepSeek format with tools support
           const requestBody: any = {
             model: model,
             messages: [
-              { role: 'system', content: 'Ты помощник для системы управления строительными проектами.' },
+              { role: 'system', content: 'Ты помощник для системы управления строительными проектами с возможностями создания и обновления данных.' },
               { role: 'user', content: systemPrompt }
             ],
-            max_tokens: 1000
+            max_tokens: 1500,
+            tools: availableTools,
+            tool_choice: "auto"
           };
 
           // Add temperature only for older models that support it
@@ -269,7 +386,32 @@ serve(async (req) => {
         if (provider.provider_type === 'anthropic') {
           return result.content?.[0]?.text || 'Не удалось получить ответ от ИИ.';
         } else {
-          return result.choices?.[0]?.message?.content || 'Не удалось получить ответ от ИИ.';
+          const message = result.choices?.[0]?.message;
+          
+          // Handle tool calls if present
+          if (message?.tool_calls && message.tool_calls.length > 0) {
+            let toolResults = [];
+            
+            for (const toolCall of message.tool_calls) {
+              const toolResult = await executeToolFunction(
+                toolCall.function.name,
+                JSON.parse(toolCall.function.arguments)
+              );
+              toolResults.push({
+                tool: toolCall.function.name,
+                result: toolResult
+              });
+            }
+            
+            // Return combined response with tool results
+            const toolSummary = toolResults.map(tr => 
+              `${tr.tool}: ${tr.result.success ? tr.result.message : tr.result.error}`
+            ).join('\n');
+            
+            return `${message.content || 'Операция выполнена'}\n\nРезультаты операций:\n${toolSummary}`;
+          }
+          
+          return message?.content || 'Не удалось получить ответ от ИИ.';
         }
 
       } catch (error) {
@@ -290,7 +432,7 @@ serve(async (req) => {
     return new Response(
       JSON.stringify({ 
         error: 'Внутренняя ошибка сервера',
-        details: error.message 
+        details: error instanceof Error ? error.message : String(error)
       }),
       { 
         status: 500,
