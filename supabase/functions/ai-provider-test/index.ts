@@ -95,7 +95,8 @@ serve(async (req) => {
       }
     } catch (error) {
       console.error('Provider test error:', error);
-      testResult = { success: false, error: error.message };
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      testResult = { success: false, error: errorMessage };
     }
 
     const responseTime = Date.now() - startTime;
@@ -122,7 +123,7 @@ serve(async (req) => {
         last_status: testResult.success ? 'online' : 'error',
         last_tested_at: new Date().toISOString(),
         last_response_time_ms: responseTime,
-        last_error: testResult.success ? null : testResult.error
+        last_error: testResult.success ? null : (testResult as any).error
       })
       .eq('id', provider_id);
 

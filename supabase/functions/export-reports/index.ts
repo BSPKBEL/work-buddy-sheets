@@ -12,7 +12,7 @@ const supabase = createClient(
   Deno.env.get('SUPABASE_ANON_KEY') ?? ''
 );
 
-serve(async (req) => {
+serve(async (req): Promise<Response> => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
@@ -55,7 +55,7 @@ serve(async (req) => {
           'Статус': p.status,
           'Дата начала': p.start_date,
           'Дата окончания': p.end_date,
-          'Общие расходы': p.project_expenses?.reduce((sum, e) => sum + Number(e.amount), 0) || 0
+          'Общие расходы': p.project_expenses?.reduce((sum: number, e: any) => sum + Number(e.amount), 0) || 0
         }));
 
         filename = `financial_report_${new Date().toISOString().split('T')[0]}.csv`;
@@ -78,7 +78,7 @@ serve(async (req) => {
         if (attendanceError) throw attendanceError;
 
         // Group by worker
-        const workerStats = attendance.reduce((acc, record) => {
+        const workerStats = attendance.reduce((acc: any, record: any) => {
           const workerName = record.worker?.full_name || 'Unknown';
           if (!acc[workerName]) {
             acc[workerName] = {
@@ -184,9 +184,16 @@ serve(async (req) => {
       });
     }
 
+    // Fallback return statement
+    return new Response(JSON.stringify({ error: 'Unknown format' }), {
+      status: 400,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+
   } catch (error) {
     console.error('Error in export-reports:', error);
-    return new Response(JSON.stringify({ error: error.message }), {
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    return new Response(JSON.stringify({ error: errorMessage }), {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });

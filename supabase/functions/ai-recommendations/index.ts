@@ -117,9 +117,9 @@ serve(async (req) => {
       let totalSkillLevel = 0;
       
       // Check skill matches
-      worker.worker_skills?.forEach(ws => {
+      worker.worker_skills?.forEach((ws: any) => {
         const skillName = ws.skill?.name?.toLowerCase();
-        if (requiredSkills.some(rs => rs.toLowerCase().includes(skillName))) {
+        if (requiredSkills.some((rs: string) => rs.toLowerCase().includes(skillName))) {
           skillMatches++;
           totalSkillLevel += ws.level || 1;
           score += (ws.level || 1) * 20; // Base skill score
@@ -130,7 +130,7 @@ serve(async (req) => {
 
       // Availability bonus (not currently assigned)
       const isAvailable = !worker.worker_assignments?.some(
-        assignment => !assignment.end_date
+        (assignment: any) => !assignment.end_date
       );
       if (isAvailable) score += 30;
 
@@ -208,7 +208,8 @@ serve(async (req) => {
 
   } catch (error) {
     console.error('Error in ai-recommendations:', error);
-    return new Response(JSON.stringify({ error: error.message }), {
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    return new Response(JSON.stringify({ error: errorMessage }), {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });

@@ -75,16 +75,17 @@ serve(async (req) => {
 
         // Create notification if provider is down
         if (!testResult.success) {
-          await createFailureNotification(supabaseClient, provider, testResult.error);
+          await createFailureNotification(supabaseClient, provider, testResult.error || 'Unknown error');
         }
 
       } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : 'Unknown error';
         console.error(`Error monitoring ${provider.name}:`, error);
         monitoringResults.push({
           provider_id: provider.id,
           provider_name: provider.name,
           status: 'error',
-          error_message: error.message,
+          error_message: errorMessage,
           last_check: new Date().toISOString()
         });
 
@@ -94,12 +95,12 @@ serve(async (req) => {
           .update({
             last_status: 'error',
             last_tested_at: new Date().toISOString(),
-            last_error: error.message,
+            last_error: errorMessage,
             updated_at: new Date().toISOString()
           })
           .eq('id', provider.id);
 
-        await createFailureNotification(supabaseClient, provider, error.message);
+        await createFailureNotification(supabaseClient, provider, errorMessage);
       }
     }
 
@@ -187,10 +188,11 @@ async function testProvider(provider: any) {
     };
 
   } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     return {
       success: false,
       responseTime: Date.now() - startTime,
-      error: error.message
+      error: errorMessage
     };
   }
 }
@@ -205,7 +207,7 @@ async function createFailureNotification(supabaseClient: any, provider: any, err
       .eq('is_active', true);
 
     if (adminRoles && adminRoles.length > 0) {
-      const notifications = adminRoles.map(admin => ({
+      const notifications = adminRoles.map((admin: any) => ({
         type: 'AI_PROVIDER_FAILURE',
         recipient: admin.user_id,
         message: `AI провайдер "${provider.name}" недоступен: ${errorMessage}`,
@@ -258,7 +260,7 @@ async function checkFailover(supabaseClient: any, results: any[]) {
           .eq('is_active', true);
 
         if (adminRoles && adminRoles.length > 0) {
-          const notifications = adminRoles.map(admin => ({
+          const notifications = adminRoles.map((admin: any) => ({
             type: 'AI_FAILOVER_ALERT',
             recipient: admin.user_id,
             message: `Критически! Все AI провайдеры типа "${type}" недоступны. Требуется вмешательство.`,

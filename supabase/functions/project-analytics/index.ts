@@ -53,7 +53,7 @@ serve(async (req) => {
     console.log(`Analyzing project ${projectId} with type: ${analysisType}`);
 
     // Get project with related data
-    const { data: project, error: projectError } = await supabase
+    const { data: project, error: projectError } = await supabaseAdmin
       .from('projects')
       .select(`
         *,
@@ -91,8 +91,8 @@ serve(async (req) => {
     }
 
     // Calculate financial metrics
-    const totalExpenses = project.project_expenses?.reduce((sum, exp) => sum + Number(exp.amount), 0) || 0;
-    const totalLabor = project.attendance?.reduce((sum, att) => {
+    const totalExpenses = project.project_expenses?.reduce((sum: number, exp: any) => sum + Number(exp.amount), 0) || 0;
+    const totalLabor = project.attendance?.reduce((sum: number, att: any) => {
       const dailyRate = att.worker?.daily_rate || 0;
       const hoursWorked = att.hours_worked || 8;
       return sum + (dailyRate * hoursWorked / 8);
@@ -104,24 +104,24 @@ serve(async (req) => {
 
     // Task completion metrics
     const tasks = project.project_tasks || [];
-    const completedTasks = tasks.filter(t => t.status === 'completed').length;
+    const completedTasks = tasks.filter((t: any) => t.status === 'completed').length;
     const totalTasks = tasks.length;
     const taskCompletionRate = totalTasks > 0 ? (completedTasks / totalTasks * 100) : 0;
 
     // Time efficiency metrics
-    const totalEstimatedHours = tasks.reduce((sum, t) => sum + (t.estimated_hours || 0), 0);
-    const totalActualHours = tasks.reduce((sum, t) => sum + (t.actual_hours || 0), 0);
+    const totalEstimatedHours = tasks.reduce((sum: number, t: any) => sum + (t.estimated_hours || 0), 0);
+    const totalActualHours = tasks.reduce((sum: number, t: any) => sum + (t.actual_hours || 0), 0);
     const timeEfficiency = totalEstimatedHours > 0 ? (totalEstimatedHours / totalActualHours * 100) : 0;
 
     // Expense breakdown by category
-    const expensesByCategory = project.project_expenses?.reduce((acc, exp) => {
+    const expensesByCategory = project.project_expenses?.reduce((acc: Record<string, number>, exp: any) => {
       const categoryName = exp.category?.name || 'Other';
       acc[categoryName] = (acc[categoryName] || 0) + Number(exp.amount);
       return acc;
     }, {} as Record<string, number>) || {};
 
     // Worker performance analysis
-    const workerPerformance = project.attendance?.reduce((acc, att) => {
+    const workerPerformance = project.attendance?.reduce((acc: Record<string, any>, att: any) => {
       const workerName = att.worker?.full_name || 'Unknown';
       if (!acc[workerName]) {
         acc[workerName] = {
@@ -235,7 +235,8 @@ serve(async (req) => {
 
   } catch (error) {
     console.error('Error in project-analytics:', error);
-    return new Response(JSON.stringify({ error: error.message }), {
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    return new Response(JSON.stringify({ error: errorMessage }), {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });

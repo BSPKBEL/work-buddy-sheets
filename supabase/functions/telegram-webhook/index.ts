@@ -223,7 +223,8 @@ async function processImageWithAI(imageData: Uint8Array): Promise<any> {
 async function processAudioWithAI(audioData: Uint8Array): Promise<any> {
   // Convert to transcription first
   const formData = new FormData();
-  const blob = new Blob([audioData], { type: 'audio/ogg' });
+  const audioBuffer = new Uint8Array(audioData);
+  const blob = new Blob([audioBuffer], { type: 'audio/ogg' });
   formData.append('file', blob, 'audio.ogg');
   formData.append('model', 'whisper-1');
   formData.append('language', 'ru');
@@ -445,7 +446,8 @@ async function handleStatusCommand(chatId: number) {
 
     await sendTelegramMessage(chatId, statusText);
   } catch (error) {
-    await sendTelegramMessage(chatId, `❌ Ошибка получения статуса: ${error.message}`);
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    await sendTelegramMessage(chatId, `❌ Ошибка получения статуса: ${errorMessage}`);
   }
 }
 
@@ -471,7 +473,8 @@ async function handleWorkersCommand(chatId: number) {
 
     await sendTelegramMessage(chatId, workersText);
   } catch (error) {
-    await sendTelegramMessage(chatId, `❌ Ошибка получения списка работников: ${error.message}`);
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    await sendTelegramMessage(chatId, `❌ Ошибка получения списка работников: ${errorMessage}`);
   }
 }
 
@@ -510,8 +513,9 @@ async function handleAttendanceCommand(chatId: number) {
     };
 
     for (const record of attendance) {
-      const emoji = statusEmojis[record.status] || '❓';
-      const statusName = statusNames[record.status] || record.status;
+      const status = record.status as keyof typeof statusEmojis;
+      const emoji = statusEmojis[status] || '❓';
+      const statusName = statusNames[status] || record.status;
       attendanceText += `${emoji} <b>${record.workers.full_name}</b> - ${statusName}`;
       if (record.hours_worked) {
         attendanceText += ` (${record.hours_worked}ч)`;
@@ -524,7 +528,8 @@ async function handleAttendanceCommand(chatId: number) {
 
     await sendTelegramMessage(chatId, attendanceText);
   } catch (error) {
-    await sendTelegramMessage(chatId, `❌ Ошибка получения посещаемости: ${error.message}`);
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    await sendTelegramMessage(chatId, `❌ Ошибка получения посещаемости: ${errorMessage}`);
   }
 }
 
@@ -559,7 +564,8 @@ async function handlePaymentsCommand(chatId: number) {
 
     await sendTelegramMessage(chatId, paymentsText);
   } catch (error) {
-    await sendTelegramMessage(chatId, `❌ Ошибка получения выплат: ${error.message}`);
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    await sendTelegramMessage(chatId, `❌ Ошибка получения выплат: ${errorMessage}`);
   }
 }
 
@@ -608,7 +614,8 @@ async function handleReportsCommand(chatId: number) {
 
     await sendTelegramMessage(chatId, reportsText);
   } catch (error) {
-    await sendTelegramMessage(chatId, `❌ Ошибка создания отчетов: ${error.message}`);
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    await sendTelegramMessage(chatId, `❌ Ошибка создания отчетов: ${errorMessage}`);
   }
 }
 
@@ -796,7 +803,8 @@ serve(async (req) => {
 
     } catch (aiError) {
       console.error('AI processing error:', aiError);
-      result = `❌ Ошибка обработки: ${aiError.message}\n\nИспользуйте /help для просмотра доступных команд.`;
+      const errorMessage = aiError instanceof Error ? aiError.message : 'Unknown error';
+      result = `❌ Ошибка обработки: ${errorMessage}\n\nИспользуйте /help для просмотра доступных команд.`;
     }
 
     await sendTelegramMessage(message.chat.id, result);
@@ -805,7 +813,8 @@ serve(async (req) => {
 
   } catch (error) {
     console.error('Webhook error:', error);
-    return new Response(JSON.stringify({ error: error.message }), {
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    return new Response(JSON.stringify({ error: errorMessage }), {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
